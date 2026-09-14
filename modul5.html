@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Game 5: Cari Harta Karun - KAFA Arked</title>
+    <style>
+        :root {
+            --bg-dark: #020b14;
+            --bg-grid: rgba(0, 243, 255, 0.08);
+            --glass-bg: rgba(10, 20, 35, 0.7);
+            --glass-border: rgba(0, 243, 255, 0.3);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+            --neon-teal: #00f3ff;
+            --neon-gold: #ffd700;
+            --neon-magenta: #ff00ea;
+            --neon-red: #ff2a2a;
+            --neon-green: #39ff14;
+            --text-main: #f8fafc;
+            --font-ui: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --font-arab: 'Traditional Arabic', 'Amiri', serif;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body, html { width: 100vw; height: 100vh; overflow: hidden; background-color: var(--bg-dark); font-family: var(--font-ui); color: var(--text-main); user-select: none; }
+        body::before { content: ''; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-image: linear-gradient(var(--bg-grid) 1px, transparent 1px), linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px); background-size: 50px 50px; z-index: -2; animation: panGrid 20s linear infinite; }
+        @keyframes panGrid { 0% { background-position: 0 0; } 100% { background-position: 50px 50px; } }
+        .ambient-light { position: fixed; width: 45vw; height: 100vh; filter: blur(120px); z-index: -1; opacity: 0.35; }
+        .light-left { top: -20%; left: -10%; background: radial-gradient(circle, var(--neon-teal), transparent 70%); }
+        .light-right { bottom: -20%; right: -10%; background: radial-gradient(circle, var(--neon-gold), transparent 70%); }
+        .glass-panel { background: var(--glass-bg); backdrop-filter: blur(15px); border: 1px solid var(--glass-border); border-radius: 15px; box-shadow: var(--glass-shadow); }
+        #turn-indicator { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); padding: 15px 40px; font-size: 1.5rem; font-weight: bold; border-bottom: 4px solid var(--neon-gold); text-align: center; z-index: 50; text-shadow: 0 0 10px var(--neon-gold); color: var(--neon-gold); }
+        #scoreboard { position: absolute; top: 20px; right: 20px; width: 250px; padding: 15px; z-index: 50; border-right: 3px solid var(--neon-teal); }
+        .score-title { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; font-weight: bold; }
+        .team-row { display: flex; justify-content: space-between; padding: 8px 10px; margin-bottom: 5px; border-radius: 6px; font-weight: bold; font-size: 1.1rem; transition: 0.3s; }
+        .team-row.active { background: rgba(0, 243, 255, 0.2); border: 1px solid var(--neon-teal); color: var(--neon-teal); text-shadow: 0 0 10px var(--neon-teal); transform: scale(1.05); }
+        #btn-settings { position: absolute; top: 20px; left: 20px; width: 60px; height: 60px; border-radius: 50%; background: var(--glass-bg); border: 2px solid var(--neon-teal); color: var(--neon-teal); font-size: 1.8rem; display: flex; justify-content: center; align-items: center; cursor: pointer; z-index: 100; box-shadow: 0 0 15px rgba(0, 243, 255, 0.3); }
+        #game-board { position: absolute; top: 55%; left: 50%; transform: translate(-50%, -50%); display: grid; gap: 20px; padding: 20px; z-index: 10; width: 90%; max-width: 1000px; }
+        .card { background: transparent; cursor: pointer; perspective: 1000px; aspect-ratio: 1 / 1; min-height: 120px; }
+        .card-inner { position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1); transform-style: preserve-3d; border-radius: 15px; }
+        .card.flipped .card-inner, .card.matched .card-inner { transform: rotateY(180deg); }
+        .card-front, .card-back { position: absolute; width: 100%; height: 100%; -webkit-backface-visibility: hidden; backface-visibility: hidden; border-radius: 15px; display: flex; justify-content: center; align-items: center; }
+        .card-front { background: linear-gradient(135deg, rgba(20,30,50,0.9), rgba(5,10,20,0.9)); border: 2px solid var(--neon-teal); box-shadow: inset 0 0 20px rgba(0, 243, 255, 0.2), 0 0 15px rgba(0, 243, 255, 0.4); font-size: 3rem; color: var(--neon-teal); }
+        .card-back { background: rgba(0,0,0,0.8); border: 3px solid var(--neon-gold); transform: rotateY(180deg); box-shadow: inset 0 0 30px rgba(255, 215, 0, 0.3); padding: 10px; }
+        .card-text { font-size: 1.8rem; font-weight: bold; color: #fff; text-shadow: 0 0 15px var(--neon-gold); font-family: var(--font-arab); direction: rtl; }
+        .float-score { position: absolute; font-size: 3rem; font-weight: 900; z-index: 100; pointer-events: none; animation: floatUp 1.5s ease-out forwards; }
+        .float-correct { color: var(--neon-gold); text-shadow: 0 0 20px var(--neon-gold), 0 0 5px #fff; }
+        .float-wrong { color: var(--neon-red); text-shadow: 0 0 20px var(--neon-red), 0 0 5px #fff; }
+        @keyframes floatUp { 0% { transform: translate(-50%, 0) scale(1); opacity: 1; } 100% { transform: translate(-50%, -100px) scale(1.5); opacity: 0; } }
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); z-index: 1000; }
+        .modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; padding: 30px; direction: ltr; }
+        .modal h2 { text-align: center; color: var(--neon-teal); font-size: 2rem; text-shadow: 0 0 15px var(--neon-teal); margin-bottom: 25px; border-bottom: 2px solid rgba(0, 243, 255, 0.3); padding-bottom: 15px; }
+        .close-btn { position: absolute; top: 20px; right: 20px; background: none; border: none; color: #fff; font-size: 2rem; cursor: pointer; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 8px; color: var(--neon-gold); }
+        .form-control { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.6); color: white; font-size: 1.1rem; }
+        .btn { padding: 12px 25px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.3s; text-align: center; border: 2px solid transparent; width: 100%; }
+        .btn-primary { background: rgba(0, 243, 255, 0.1); border-color: var(--neon-teal); color: var(--neon-teal); }
+        .btn-danger { background: rgba(255, 0, 60, 0.1); border-color: var(--neon-red); color: var(--neon-red); margin-top: 15px; }
+        .btn-home { background: rgba(255, 215, 0, 0.1); border-color: var(--neon-gold); color: var(--neon-gold); text-decoration: none; display: block; margin-top: 15px; }
+        .table-wrap { max-height: 250px; overflow-y: auto; border: 1px solid var(--glass-border); border-radius: 10px; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        th { background: rgba(0,0,0,0.8); color: var(--neon-teal); position: sticky; top: 0; }
+        .td-arab { direction: rtl; font-size: 1.3rem; font-weight: bold; font-family: var(--font-arab); }
+        .del-btn { background: none; border: none; color: var(--neon-red); font-size: 1.2rem; cursor: pointer; }
+        .fs-screen { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(5, 5, 15, 0.95); z-index: 500; }
+        .fs-screen h1 { font-size: 4rem; color: var(--neon-gold); text-shadow: 0 0 20px var(--neon-gold); margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="ambient-light light-left"></div>
+    <div class="ambient-light light-right"></div>
+    <button id="btn-settings" onclick="Editor.openModal()" title="Tetapan">⚙️</button>
+    <div id="start-screen" class="fs-screen">
+        <h1>💎 CARI HARTA KARUN</h1>
+        <p style="font-size: 1.2rem; margin-bottom: 40px; color: var(--text-muted); max-width: 600px;">
+            Peti misteri menyembunyikan pasangan kalimah Bahasa Arab yang sepadan!<br>Buka 2 peti setiap giliran.
+        </p>
+        <button class="btn btn-primary" style="max-width: 300px; font-size: 1.5rem;" onclick="Game.startMatch()">▶ MULA PENCARIAN</button>
+    </div>
+    <div id="end-screen" class="fs-screen" style="display: none;">
+        <h1 style="color:var(--neon-teal); text-shadow:0 0 20px var(--neon-teal);">🏆 PENCARIAN SELESAI</h1>
+        <div id="final-results" style="font-size: 1.5rem; margin-bottom: 30px; line-height: 2; color: white;"></div>
+        <button class="btn btn-primary" style="max-width: 300px; margin-bottom: 15px;" onclick="location.reload()">🔄 MAIN SEMULA</button>
+        <a href="index.html" class="btn btn-home" style="max-width: 300px;">🏠 HALAMAN UTAMA</a>
+    </div>
+    <div id="scoreboard" class="glass-panel">
+        <div class="score-title">Markah Kumpulan</div>
+        <div id="score-list"></div>
+    </div>
+    <div id="turn-indicator" class="glass-panel">GILIRAN KUMPULAN 1</div>
+    <div id="game-board"></div>
+    <div id="overlay-editor" class="overlay">
+        <div class="glass-panel modal" id="editor-modal">
+            <button class="close-btn" onclick="Editor.closeModal()">✖</button>
+            <h2>⚙️ EDITOR HARTA KARUN</h2>
+            <div style="background: rgba(0,0,0,0.4); padding: 25px; border-radius: 15px; border: 1px dashed var(--neon-teal); margin-bottom: 20px;">
+                <h3 style="color:var(--neon-gold); margin-bottom: 15px;">➕ Tambah Pasangan</h3>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                    <div class="form-group" style="flex: 1;"><label>Kalimah 1:</label><input type="text" id="edit-pair-a" class="form-control" dir="rtl"></div>
+                    <div class="form-group" style="flex: 1;"><label>Pasangan:</label><input type="text" id="edit-pair-b" class="form-control" dir="rtl"></div>
+                </div>
+                <button class="btn btn-primary" onclick="Editor.savePair()">💾 SIMPAN</button>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th style="width: 40px;">No.</th><th>Pasangan Kad</th><th style="width: 50px;">Aksi</th></tr></thead>
+                    <tbody id="editor-tbody"></tbody>
+                </table>
+            </div>
+            <button class="btn btn-danger" onclick="Editor.resetData()">🔄 RESET</button>
+            <a href="index.html" class="btn btn-home">🏠 HALAMAN UTAMA</a>
+        </div>
+    </div>
+    <script>
+        const SFX = {
+            ctx: null,
+            playTone: function(freq, type, duration, vol=0.4) {
+                if(localStorage.getItem('kafaSfx') === 'off') return;
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if(!this.ctx && AudioContext) this.ctx = new AudioContext();
+                if(!this.ctx) return;
+                try {
+                    let osc = this.ctx.createOscillator();
+                    let gain = this.ctx.createGain();
+                    osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(); osc.stop(this.ctx.currentTime + duration);
+                } catch(e){}
+            },
+            correct: function() {
+                this.playTone(500, 'sine', 0.1, 0.4);
+                setTimeout(() => this.playTone(700, 'sine', 0.15, 0.4), 100);
+            },
+            wrong: function() { this.playTone(180, 'square', 0.3, 0.4); }
+        };
+
+        const Data = {
+            teams: parseInt(localStorage.getItem('kafaMultiplayerTeams')) || 4,
+            scores: [], pairs: [],
+            defaultPairs: [
+                { a: "الْمَاءُ", b: "الإِسْمُ" },
+                { a: "يَفْتَحُ", b: "الفِعْلُ" },
+                { a: "هِيَ", b: "نَاجِحَةٌ" },
+                { a: "أَنْتُمْ", b: "تَذْهَبُونَ" }
+            ],
+            init: function() {
+                this.scores = Array(this.teams).fill(0);
+                let saved = localStorage.getItem('kafaQuestionsModul5');
+                if (saved) { try { this.pairs = JSON.parse(saved); } catch(e) { this.pairs = [...this.defaultPairs]; } }
+                else { this.pairs = [...this.defaultPairs]; }
+            },
+            save: function() { localStorage.setItem('kafaQuestionsModul5', JSON.stringify(this.pairs)); }
+        };
+
+        const UI = {
+            board: document.getElementById('game-board'),
+            scoreList: document.getElementById('score-list'),
+            turnIndicator: document.getElementById('turn-indicator'),
+            cards: [],
+            buildBoard: function(deck) {
+                this.board.innerHTML = ''; this.cards = [];
+                let totalCards = deck.length;
+                let cols = totalCards > 12 ? 4 : (totalCards > 6 ? 4 : 3);
+                if (window.innerWidth <= 768) cols = 3;
+                this.board.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+                deck.forEach((cardData, index) => {
+                    let card = document.createElement('div');
+                    card.className = 'card';
+                    card.dataset.pairId = cardData.pairId;
+                    card.dataset.index = index;
+                    card.innerHTML = `<div class="card-inner"><div class="card-front">💎</div><div class="card-back"><div class="card-text">${cardData.text}</div></div></div>`;
+                    card.addEventListener('click', () => Game.handleCardClick(card));
+                    this.board.appendChild(card); this.cards.push(card);
+                });
+            },
+            updateScoreboard: function(activeTeamIdx) {
+                this.scoreList.innerHTML = '';
+                for (let i = 0; i < Data.teams; i++) {
+                    let row = document.createElement('div'); row.className = 'team-row';
+                    if(i === activeTeamIdx) row.classList.add('active');
+                    row.innerHTML = `<span>Kump ${i+1}</span> <span>${Data.scores[i]} 🌟</span>`;
+                    this.scoreList.appendChild(row);
+                }
+            },
+            updateTurnIndicator: function(teamIdx) { this.turnIndicator.innerText = `GILIRAN KUMPULAN ${teamIdx + 1}`; },
+            showFloatText: function(text, isCorrect, x, y) {
+                let floatEl = document.createElement('div');
+                floatEl.className = 'float-score ' + (isCorrect ? 'float-correct' : 'float-wrong');
+                floatEl.innerText = text; floatEl.style.left = (x) + 'px'; floatEl.style.top = (y) + 'px';
+                document.body.appendChild(floatEl);
+                setTimeout(() => floatEl.remove(), 1500);
+            }
+        };
+
+        const Game = {
+            currentTeam: 0, flippedCards: [], matchedPairsCount: 0, isLocked: false, totalPairs: 0,
+            startMatch: function() {
+                document.getElementById('start-screen').style.display = 'none';
+                Data.init();
+                if(Data.pairs.length === 0) Data.pairs = [...Data.defaultPairs];
+                this.totalPairs = Data.pairs.length; this.matchedPairsCount = 0; this.currentTeam = 0;
+                this.setupDeck();
+                UI.updateScoreboard(this.currentTeam);
+                UI.updateTurnIndicator(this.currentTeam);
+            },
+            setupDeck: function() {
+                let deck = [];
+                Data.pairs.forEach((pair, idx) => {
+                    deck.push({ text: pair.a, pairId: idx });
+                    deck.push({ text: pair.b, pairId: idx });
+                });
+                for (let i = deck.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [deck[i], deck[j]] = [deck[j], deck[i]];
+                }
+                UI.buildBoard(deck);
+            },
+            handleCardClick: function(card) {
+                if(this.isLocked || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+                card.classList.add('flipped'); this.flippedCards.push(card);
+                if(this.flippedCards.length === 2) this.checkMatch();
+            },
+            checkMatch: function() {
+                this.isLocked = true;
+                let card1 = this.flippedCards[0]; let card2 = this.flippedCards[1];
+                let id1 = card1.dataset.pairId; let id2 = card2.dataset.pairId;
+                let rect = card1.getBoundingClientRect();
+                let x = rect.left + rect.width/2; let y = rect.top;
+                if (id1 === id2) {
+                    SFX.correct();
+                    setTimeout(() => {
+                        card1.classList.add('matched'); card2.classList.add('matched');
+                        Data.scores[this.currentTeam] += 10;
+                        UI.showFloatText("+10", true, x, y);
+                        UI.updateScoreboard(this.currentTeam);
+                        this.matchedPairsCount++;
+                        this.resetTurn();
+                    }, 500);
+                } else {
+                    SFX.wrong();
+                    UI.showFloatText("❌", false, x, y);
+                    setTimeout(() => {
+                        card1.classList.remove('flipped'); card2.classList.remove('flipped');
+                        this.resetTurn();
+                    }, 1200);
+                }
+            },
+            resetTurn: function() {
+                this.flippedCards = []; this.isLocked = false;
+                if(this.matchedPairsCount >= this.totalPairs) { this.endMatch(); return; }
+                this.currentTeam++;
+                if(this.currentTeam >= Data.teams) this.currentTeam = 0;
+                UI.updateScoreboard(this.currentTeam);
+                UI.updateTurnIndicator(this.currentTeam);
+            },
+            endMatch: function() {
+                setTimeout(() => {
+                    document.getElementById('end-screen').style.display = 'flex';
+                    let resDiv = document.getElementById('final-results'); resDiv.innerHTML = "";
+                    let maxScore = Math.max(...Data.scores);
+                    let winners = [];
+                    Data.scores.forEach((score, idx) => {
+                        if(score === maxScore) winners.push(idx + 1);
+                        resDiv.innerHTML += `Kumpulan ${idx + 1} : ${score} Mata <br>`;
+                    });
+                    resDiv.innerHTML += `<br><strong style="color:var(--neon-gold)">🏆 TAHNIAH KUMPULAN ${winners.join(' & ')}!</strong>`;
+                }, 1000);
+            }
+        };
+
+        const Editor = {
+            overlay: document.getElementById('overlay-editor'),
+            tbody: document.getElementById('editor-tbody'),
+            openModal: function() { this.overlay.style.display = 'block'; this.render(); },
+            closeModal: function() { this.overlay.style.display = 'none'; },
+            render: function() {
+                this.tbody.innerHTML = '';
+                Data.pairs.forEach((pair, idx) => {
+                    let tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${idx + 1}</td><td class="td-arab">${pair.a} - ${pair.b}</td><td><button class="del-btn" onclick="Editor.delete(${idx})">🗑️</button></td>`;
+                    this.tbody.appendChild(tr);
+                });
+            },
+            savePair: function() {
+                let pA = document.getElementById('edit-pair-a').value.trim();
+                let pB = document.getElementById('edit-pair-b').value.trim();
+                if (!pA || !pB) return alert("Isi semua!");
+                Data.pairs.push({ a: pA, b: pB }); Data.save(); this.render();
+            },
+            delete: function(idx) { Data.pairs.splice(idx, 1); Data.save(); this.render(); },
+            resetData: function() { Data.pairs = [...Data.defaultPairs]; Data.save(); this.render(); }
+        };
+    </script>
+</body>
+</html>

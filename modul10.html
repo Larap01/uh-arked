@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Game 10: Lompat Halangan - KAFA Arked</title>
+    <style>
+        /* ==========================================================================
+           1. PEMBOLEH UBAH TEMA (NEON LIME / CYBER PARKOUR)
+           ========================================================================== */
+        :root {
+            --bg-dark: #050a05;
+            --bg-grid: rgba(57, 255, 20, 0.08);
+            
+            --glass-bg: rgba(10, 20, 10, 0.75);
+            --glass-border: rgba(57, 255, 20, 0.3);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+            
+            --neon-lime: #39ff14;
+            --neon-cyan: #00f3ff;
+            --neon-yellow: #ffea00;
+            --neon-red: #ff2a2a;
+            --neon-white: #ffffff;
+            
+            --text-main: #f8fafc;
+            --font-ui: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --font-arab: 'Traditional Arabic', 'Amiri', serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body, html {
+            width: 100vw; height: 100vh; overflow: hidden;
+            background-color: var(--bg-dark); font-family: var(--font-ui);
+            color: var(--text-main); user-select: none; touch-action: manipulation;
+        }
+
+        /* Latar Belakang Trek Siber Bergerak */
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; width: 100vw; height: 200vh;
+            background-image: 
+                linear-gradient(var(--bg-grid) 2px, transparent 2px),
+                linear-gradient(90deg, var(--bg-grid) 2px, transparent 2px);
+            background-size: 80px 80px; z-index: -2;
+            transform: perspective(500px) rotateX(60deg) translateY(-100px) translateZ(-200px);
+            animation: moveTrack 2s linear infinite;
+        }
+        @keyframes moveTrack { 0% { background-position: 0 0; } 100% { background-position: 0 80px; } }
+
+        /* Cahaya Ambien */
+        .ambient-light { position: fixed; width: 50vw; height: 50vw; border-radius: 50%; filter: blur(140px); z-index: -1; opacity: 0.25; }
+        .light-left { top: -10%; left: -20%; background: var(--neon-lime); }
+        .light-right { bottom: -10%; right: -20%; background: var(--neon-cyan); }
+
+        /* ==========================================================================
+           2. ANTARAMUKA HUD (HEADS-UP DISPLAY)
+           ========================================================================== */
+        .glass-panel {
+            background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border); border-radius: 15px; box-shadow: var(--glass-shadow);
+        }
+
+        /* Misi & Pemasa (Atas Tengah) */
+        #game-header {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 750px; padding: 15px 25px; text-align: center;
+            display: flex; flex-direction: column; gap: 5px; z-index: 100;
+            border-bottom: 4px solid var(--neon-lime);
+        }
+        
+        #timer-display { font-size: 2.5rem; font-weight: 900; color: var(--neon-cyan); text-shadow: 0 0 15px var(--neon-cyan); font-family: monospace; transition: 0.3s; }
+        #timer-display.warning { color: var(--neon-red); text-shadow: 0 0 20px var(--neon-red); animation: pulse 0.5s infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        
+        #mission-text { font-size: 1.8rem; font-weight: bold; color: var(--neon-yellow); text-shadow: 0 0 15px var(--neon-yellow); direction: rtl; font-family: var(--font-arab); }
+        .team-badge { font-size: 1rem; color: #fff; background: rgba(57,255,20,0.2); padding: 4px 15px; border-radius: 15px; display: inline-block; margin-bottom: 5px; border: 1px solid var(--neon-lime); letter-spacing: 1px; }
+
+        /* Papan Skor (Atas Kanan) */
+        #scoreboard { position: absolute; top: 20px; right: 20px; width: 230px; padding: 15px; z-index: 100; border-right: 3px solid var(--neon-lime); }
+        .score-title { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; font-weight: bold; }
+        .team-row { display: flex; justify-content: space-between; padding: 6px 10px; margin-bottom: 5px; border-radius: 6px; font-weight: bold; font-size: 1rem; transition: 0.3s; }
+        .team-row.active { background: rgba(57, 255, 20, 0.2); border: 1px solid var(--neon-lime); color: var(--neon-lime); text-shadow: 0 0 8px var(--neon-lime); transform: scale(1.05); }
+
+        /* Butang Tetapan (Atas Kiri) */
+        #btn-settings {
+            position: absolute; top: 20px; left: 20px; width: 55px; height: 55px;
+            border-radius: 50%; background: var(--glass-bg); border: 2px solid var(--neon-lime);
+            color: var(--neon-lime); font-size: 1.5rem; display: flex; justify-content: center;
+            align-items: center; cursor: pointer; z-index: 100; transition: 0.4s; box-shadow: 0 0 15px rgba(57, 255, 20, 0.3);
+        }
+        #btn-settings:hover { transform: rotate(180deg) scale(1.1); box-shadow: 0 0 25px var(--neon-lime); }
+
+        /* ==========================================================================
+           3. ARENA LOMPATAN (PELARI & PAGAR HALANGAN)
+           ========================================================================== */
+        #game-arena { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden; z-index: 10; display: flex; justify-content: center; }
+
+        /* Laluan Larian (Lane Track) */
+        .track-lanes {
+            position: absolute; bottom: 0; width: 100%; max-width: 600px; height: 100%;
+            border-left: 2px dashed rgba(57, 255, 20, 0.3); border-right: 2px dashed rgba(57, 255, 20, 0.3);
+            display: flex;
+        }
+        .lane-divider { flex: 1; border-right: 2px dashed rgba(57, 255, 20, 0.2); }
+        .lane-divider:last-child { border-right: none; }
+
+        /* Avatar Pelari */
+        #runner {
+            position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+            font-size: 4rem; z-index: 30; transition: left 0.3s ease, bottom 0.4s ease;
+            filter: drop-shadow(0 0 15px var(--neon-cyan)); animation: runBounce 0.4s infinite alternate;
+        }
+        @keyframes runBounce { 0% { padding-bottom: 0; } 100% { padding-bottom: 15px; } }
+
+        #runner.jump { animation: jumpAnim 0.6s ease-out forwards; filter: drop-shadow(0 0 25px var(--neon-lime)); }
+        @keyframes jumpAnim { 0% { bottom: 80px; transform: translateX(-50%) scale(1); } 50% { bottom: 250px; transform: translateX(-50%) scale(1.2) rotate(-10deg); } 100% { bottom: 80px; transform: translateX(-50%) scale(1); } }
+
+        #runner.crash { animation: crashAnim 0.5s ease-out forwards; filter: grayscale(1) drop-shadow(0 0 20px var(--neon-red)); }
+        @keyframes crashAnim { 0% { transform: translateX(-50%) rotate(0); } 25% { transform: translateX(-60%) rotate(-20deg); } 75% { transform: translateX(-40%) rotate(20deg); } 100% { transform: translateX(-50%) rotate(0); } }
+
+        /* Pagar Halangan (Hurdle Pairs) */
+        .hurdle-row {
+            position: absolute; top: -150px; width: 100%; max-width: 600px;
+            display: flex; justify-content: space-around; z-index: 20;
+            animation: hurdleMove 3s linear forwards;
+        }
+        @keyframes hurdleMove { 0% { top: -150px; opacity: 0; transform: scale(0.8); } 20% { opacity: 1; } 100% { top: 110vh; transform: scale(1.1); } }
+
+        .hurdle-gate {
+            width: 45%; height: 100px; background: rgba(0, 0, 0, 0.8);
+            border: 3px solid var(--neon-cyan); border-radius: 12px;
+            display: flex; justify-content: center; align-items: center; text-align: center;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.4), inset 0 0 15px rgba(0, 243, 255, 0.2);
+            cursor: pointer; position: relative; overflow: hidden; transition: 0.2s;
+        }
+        .hurdle-gate:hover { border-color: var(--neon-lime); box-shadow: 0 0 25px var(--neon-lime); transform: scale(1.05); }
+        .hurdle-gate::after { content: ''; position: absolute; bottom: 0; width: 100%; height: 6px; background: repeating-linear-gradient(90deg, var(--neon-yellow) 0, var(--neon-yellow) 10px, #000 10px, #000 20px); }
+
+        .hurdle-text { font-family: var(--font-arab); font-size: 1.8rem; font-weight: bold; color: #fff; text-shadow: 0 0 10px var(--neon-cyan); direction: rtl; pointer-events: none; }
+
+        /* Teks Animasi Markah Terapung */
+        .float-score { position: absolute; font-size: 3rem; font-weight: 900; z-index: 100; pointer-events: none; animation: floatUpText 1s ease-out forwards; }
+        .float-correct { color: var(--neon-lime); text-shadow: 0 0 20px var(--neon-lime), 0 0 5px #fff; }
+        .float-wrong { color: var(--neon-red); text-shadow: 0 0 20px var(--neon-red), 0 0 5px #fff; }
+        @keyframes floatUpText { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-100px) scale(1.5); opacity: 0; } }
+
+        /* ==========================================================================
+           4. MODAL TETAPAN & EDITOR SOALAN
+           ========================================================================== */
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 1000; }
+        .modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; padding: 30px; direction: ltr; }
+        .modal::-webkit-scrollbar { width: 8px; } .modal::-webkit-scrollbar-thumb { background: var(--neon-lime); border-radius: 4px; }
+        
+        .modal h2 { text-align: center; color: var(--neon-lime); font-size: 2rem; text-shadow: 0 0 15px var(--neon-lime); margin-bottom: 25px; border-bottom: 2px solid rgba(57, 255, 20, 0.3); padding-bottom: 15px; }
+        .close-btn { position: absolute; top: 20px; right: 20px; background: none; border: none; color: #fff; font-size: 2rem; cursor: pointer; transition: 0.3s; }
+        .close-btn:hover { color: var(--neon-red); transform: scale(1.2); }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 8px; color: var(--neon-cyan); }
+        .form-control { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.6); color: white; font-size: 1.1rem; }
+        
+        .btn { padding: 12px 25px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.3s; text-align: center; border: 2px solid transparent; width: 100%; }
+        .btn-primary { background: rgba(57, 255, 20, 0.1); border-color: var(--neon-lime); color: var(--neon-lime); }
+        .btn-primary:hover { background: var(--neon-lime); color: #000; box-shadow: 0 0 20px var(--neon-lime); }
+        .btn-danger { background: rgba(255, 0, 60, 0.1); border-color: var(--neon-red); color: var(--neon-red); margin-top: 15px; }
+        .btn-home { background: rgba(0, 243, 255, 0.1); border-color: var(--neon-cyan); color: var(--neon-cyan); text-decoration: none; display: block; margin-top: 15px; }
+
+        .table-wrap { max-height: 250px; overflow-y: auto; border: 1px solid var(--glass-border); border-radius: 10px; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        th { background: rgba(0,0,0,0.8); color: var(--neon-lime); position: sticky; top: 0; }
+        .td-arab { direction: rtl; font-size: 1.3rem; font-weight: bold; font-family: var(--font-arab); }
+        .del-btn { background: none; border: none; color: var(--neon-red); font-size: 1.2rem; cursor: pointer; }
+
+        /* Skrin Pemula / Tamat */
+        .fs-screen { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(2, 5, 2, 0.95); z-index: 500; }
+        .fs-screen h1 { font-size: 4rem; color: var(--neon-lime); text-shadow: 0 0 20px var(--neon-lime); margin-bottom: 20px; }
+        
+        @media (max-width: 768px) {
+            #mission-text { font-size: 1.4rem; }
+            #timer-display { font-size: 2rem; }
+            #game-header { top: 70px; padding: 10px; width: 95%; }
+            #scoreboard { position: relative; width: 95%; right: 0; top: 0; display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; border: none; padding: 10px; margin: 0 auto; }
+            .team-row { margin: 0; font-size: 0.85rem; padding: 5px 8px; }
+            #runner { font-size: 3rem; bottom: 100px; }
+            .hurdle-gate { height: 80px; }
+            .hurdle-text { font-size: 1.3rem; }
+            #btn-settings { top: 10px; left: 10px; width: 45px; height: 45px; font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ambient-light light-left"></div>
+    <div class="ambient-light light-right"></div>
+
+    <button id="btn-settings" onclick="Editor.openModal()" title="Tetapan & Editor">⚙️</button>
+
+    <!-- Skrin Mula -->
+    <div id="start-screen" class="fs-screen">
+        <h1>🏃‍♂️ LOMPAT HALANGAN</h1>
+        <p style="font-size: 1.2rem; margin-bottom: 40px; color: var(--text-muted); max-width: 600px;">
+            Sesi setiap kumpulan adalah <strong>30 Saat</strong>.<br>
+            Ketuk pada lorong pagar yang membawa jawapan <strong>BETUL</strong> untuk melompat.<br>
+            Awas! Memilih pagar yang salah akan menyebabkan anda terlanggar dan hilang markah.
+        </p>
+        <button class="btn btn-primary" style="max-width: 300px; font-size: 1.5rem;" onclick="Game.startMatch()">▶ MULA BERLARI</button>
+    </div>
+
+    <!-- Skrin Tamat -->
+    <div id="end-screen" class="fs-screen" style="display: none;">
+        <h1 style="color:var(--neon-yellow); text-shadow:0 0 20px var(--neon-yellow);">🏆 KEJOHANAN TAMAT</h1>
+        <div id="final-results" style="font-size: 1.5rem; margin-bottom: 30px; line-height: 2; color: white;"></div>
+        <button class="btn btn-primary" style="max-width: 300px; margin-bottom: 15px; border-color:var(--neon-yellow); color:var(--neon-yellow);" onclick="location.reload()">🔄 MAIN SEMULA</button>
+        <a href="index.html" class="btn btn-home" style="max-width: 300px;">🏠 KEMBALI KE MENU UTAMA</a>
+    </div>
+
+    <!-- HUD Papan Skor -->
+    <div id="scoreboard" class="glass-panel">
+        <div class="score-title">Markah Kumpulan</div>
+        <div id="score-list"></div>
+    </div>
+
+    <!-- HUD Pemasa & Misi -->
+    <div id="game-header" class="glass-panel">
+        <div class="team-badge" id="team-badge">GILIRAN KUMPULAN 1</div>
+        <div id="mission-text">Bersedia...</div>
+        <div id="timer-display">30.0s</div>
+    </div>
+
+    <!-- Arena Larian -->
+    <div id="game-arena">
+        <div class="track-lanes">
+            <div class="lane-divider"></div>
+            <div class="lane-divider"></div>
+        </div>
+        <!-- Watak Pelari -->
+        <div id="runner">🏃‍♂️</div>
+        <!-- Pagar Halangan (Hurdles) akan dijana di sini -->
+    </div>
+
+    <!-- Modal Editor Soalan -->
+    <div id="overlay-editor" class="overlay">
+        <div class="glass-panel modal" id="editor-modal">
+            <button class="close-btn" onclick="Editor.closeModal()">✖</button>
+            <h2>⚙️ EDITOR SOALAN HALANGAN</h2>
+            
+            <div style="background: rgba(0,0,0,0.4); padding: 25px; border-radius: 15px; border: 1px dashed var(--neon-lime); margin-bottom: 20px;">
+                <h3 style="color:var(--neon-cyan); margin-bottom: 15px;">➕ Tambah Misi Halangan</h3>
+                <div class="form-group">
+                    <label>Arahan Misi (Cth: Lompat Pagar KATA NAMA):</label>
+                    <input type="text" id="edit-q-text" class="form-control" placeholder="Cth: Lompat KATA NAMA (الإِسْمُ)" dir="rtl">
+                </div>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label>Kalimah 1 (Pagar A):</label>
+                        <input type="text" id="edit-opt-1" class="form-control" placeholder="الْمَاءُ" dir="rtl">
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label>Kalimah 2 (Pagar B):</label>
+                        <input type="text" id="edit-opt-2" class="form-control" placeholder="يَفْتَحُ" dir="rtl">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Pagar Tepat Untuk Dilompat:</label>
+                    <select id="edit-ans" class="form-control">
+                        <option value="0">Kalimah 1</option>
+                        <option value="1">Kalimah 2</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="Editor.saveQuestion()">💾 SIMPAN MISI</button>
+            </div>
+
+            <h3 style="color:var(--neon-lime); margin-top: 20px;">📋 Bank Misi Semasa</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th style="width: 40px;">No.</th><th>Misi & Kalimah Pagar</th><th style="width: 50px;">Aksi</th></tr></thead>
+                    <tbody id="editor-tbody"></tbody>
+                </table>
+            </div>
+            
+            <button class="btn btn-danger" onclick="Editor.resetData()">🔄 KEMBALIKAN KE SILIBUS ASAL (RESET)</button>
+            <a href="index.html" class="btn btn-home">🏠 KEMBALI KE HALAMAN UTAMA</a>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================================
+        // MODUL AUDIO (Web Audio API Synthesizer)
+        // =====================================================================
+        const SFX = {
+            ctx: null,
+            playTone: function(freq, type, duration, vol=0.3, endFreq=null) {
+                if(localStorage.getItem('kafaSfx') === 'off') return;
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if(!this.ctx && AudioContext) this.ctx = new AudioContext();
+                if(!this.ctx) return;
+                try {
+                    let osc = this.ctx.createOscillator();
+                    let gain = this.ctx.createGain();
+                    osc.type = type; 
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    if(endFreq) { osc.frequency.exponentialRampToValueAtTime(endFreq, this.ctx.currentTime + duration); }
+                    
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                    
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(); osc.stop(this.ctx.currentTime + duration);
+                } catch(e){}
+            },
+            jump: function() { this.playTone(300, 'sine', 0.3, 0.4, 600); }, // Swoop up
+            crash: function() { this.playTone(100, 'sawtooth', 0.4, 0.5, 40); }, // Low thud
+            correct: function() { setTimeout(() => { this.playTone(600, 'sine', 0.1, 0.3); this.playTone(900, 'sine', 0.2, 0.3); }, 300); },
+            wrong: function() { setTimeout(() => this.playTone(200, 'square', 0.3, 0.4), 300); }
+        };
+
+        // =====================================================================
+        // MODUL DATA
+        // =====================================================================
+        const Data = {
+            teams: parseInt(localStorage.getItem('kafaMultiplayerTeams')) || 4,
+            scores: [], questions: [],
+            
+            defaultQuestions: [
+                { q: "Lompat pagar KATA NAMA (الإِسْمُ)", options: ["الْمَاءُ", "يَفْتَحُ"], answer: 0 },
+                { q: "Lompat pagar KATA KERJA (الفِعْلُ)", options: ["شَوْكَةٌ", "يُعْطِي"], answer: 1 },
+                { q: "Lompat pada GANTI NAMA DIRI (الضَّمِيرُ)", options: ["هُنَّ", "قَلَمٌ"], answer: 0 },
+                { q: "Cari kalimah bagi: MEREKA LELAKI", options: ["أَنْتُمْ", "هُمْ"], answer: 1 },
+                { q: "Cari angka: LIMA", options: ["٥", "٧"], answer: 0 },
+                { q: "Cari angka: SEPULUH", options: ["١٢", "١٠"], answer: 1 },
+                { q: "Pilih MASA yang tepat: 6:00", options: ["السَّادِسَةُ تَمَامًا", "الخَامِسَةُ"], answer: 0 },
+                { q: "Pilih Kategori bagi: أَقْرَأُ", options: ["الإِسْمُ", "الفِعْلُ"], answer: 1 }
+            ],
+
+            init: function() {
+                this.scores = Array(this.teams).fill(0);
+                let saved = localStorage.getItem('kafaQuestionsModul10');
+                if(saved) { try { this.questions = JSON.parse(saved); } catch(e) { this.questions = [...this.defaultQuestions]; } }
+                else { this.questions = [...this.defaultQuestions]; }
+            },
+            save: function() { localStorage.setItem('kafaQuestionsModul10', JSON.stringify(this.questions)); }
+        };
+
+        // =====================================================================
+        // MODUL UI & ANIMASI
+        // =====================================================================
+        const UI = {
+            arena: document.getElementById('game-arena'),
+            scoreList: document.getElementById('score-list'),
+            timer: document.getElementById('timer-display'),
+            mission: document.getElementById('mission-text'),
+            teamBadge: document.getElementById('team-badge'),
+            runner: document.getElementById('runner'),
+
+            updateScoreboard: function(activeIdx) {
+                this.scoreList.innerHTML = '';
+                for(let i=0; i<Data.teams; i++) {
+                    let row = document.createElement('div');
+                    row.className = 'team-row';
+                    if(i === activeIdx) row.classList.add('active');
+                    
+                    row.innerHTML = `<span>Kump ${i+1}</span> <span>${Data.scores[i]}</span>`;
+                    this.scoreList.appendChild(row);
+                }
+            },
+
+            moveRunner: function(position) {
+                // position: 'left' (25%), 'right' (75%), 'center' (50%)
+                if(position === 'left') this.runner.style.left = '25%';
+                else if(position === 'right') this.runner.style.left = '75%';
+                else this.runner.style.left = '50%';
+            },
+
+            playAnim: function(type) {
+                this.runner.classList.remove('jump', 'crash');
+                void this.runner.offsetWidth; // trigger reflow
+                if(type === 'jump') {
+                    SFX.jump();
+                    this.runner.classList.add('jump');
+                } else if(type === 'crash') {
+                    SFX.crash();
+                    this.runner.classList.add('crash');
+                }
+            },
+
+            showFloatText: function(text, isCorrect, xOffset) {
+                let floatEl = document.createElement('div');
+                floatEl.className = 'float-score ' + (isCorrect ? 'float-correct' : 'float-wrong');
+                floatEl.innerText = text;
+                
+                let rect = this.runner.getBoundingClientRect();
+                floatEl.style.left = (rect.left + rect.width/2 - 20 + xOffset) + 'px';
+                floatEl.style.top = (rect.top - 50) + 'px';
+                
+                this.arena.appendChild(floatEl);
+                setTimeout(() => floatEl.remove(), 1000);
+            },
+
+            clearHurdles: function() {
+                const hurdles = document.querySelectorAll('.hurdle-row');
+                hurdles.forEach(h => h.remove());
+            }
+        };
+
+        // =====================================================================
+        // ENJIN PERMAINAN
+        // =====================================================================
+        const Game = {
+            currentTeam: 0,
+            timeLeft: 30.0,
+            timerId: null,
+            spawnerId: null,
+            isPlaying: false,
+            currentMission: null,
+            isJumping: false,
+
+            startMatch: function() {
+                document.getElementById('start-screen').style.display = 'none';
+                Data.init();
+                if(Data.questions.length === 0) Data.questions = [...Data.defaultQuestions];
+                
+                this.currentTeam = 0;
+                this.startTurn();
+            },
+
+            startTurn: function() {
+                this.timeLeft = 30.0;
+                this.isPlaying = true;
+                
+                UI.updateScoreboard(this.currentTeam);
+                UI.teamBadge.innerText = `GILIRAN KUMPULAN ${this.currentTeam + 1}`;
+                UI.moveRunner('center');
+                
+                this.pickMission();
+                this.runEngine();
+            },
+
+            pickMission: function() {
+                let idx = Math.floor(Math.random() * Data.questions.length);
+                this.currentMission = Data.questions[idx];
+                UI.mission.innerText = `🎯 ${this.currentMission.q}`;
+            },
+
+            runEngine: function() {
+                if(!this.isPlaying) return;
+
+                this.timerId = setInterval(() => {
+                    this.timeLeft -= 0.1;
+                    if(this.timeLeft <= 0) {
+                        this.timeLeft = 0; this.endTurn();
+                    }
+                    UI.timer.innerText = this.timeLeft.toFixed(1) + 's';
+                    
+                    if(this.timeLeft < 10) UI.timer.classList.add('warning');
+                    else UI.timer.classList.remove('warning');
+                }, 100);
+
+                // Spawner Pagar Halangan (Lebih perlahan sedikit supaya ada masa baca)
+                this.spawnerId = setInterval(() => {
+                    // Cek jika ada pagar sedang jatuh untuk elak tumpang tindih teruk
+                    if(document.querySelectorAll('.hurdle-row').length < 1) {
+                        this.spawnHurdlePair(); 
+                    }
+                }, 1500);
+            },
+
+            spawnHurdlePair: function() {
+                let row = document.createElement('div');
+                row.className = 'hurdle-row';
+                
+                // Shuffle jawapan ke kiri atau kanan
+                let isLeftCorrect = Math.random() > 0.5;
+                let leftText = isLeftCorrect ? this.currentMission.options[this.currentMission.answer] : this.currentMission.options[this.currentMission.answer === 0 ? 1 : 0];
+                let rightText = isLeftCorrect ? this.currentMission.options[this.currentMission.answer === 0 ? 1 : 0] : this.currentMission.options[this.currentMission.answer];
+
+                // Pagar Kiri
+                let gateL = document.createElement('div');
+                gateL.className = 'hurdle-gate';
+                gateL.innerHTML = `<span class="hurdle-text">${leftText}</span>`;
+                gateL.dataset.isCorrect = isLeftCorrect ? 'true' : 'false';
+                gateL.dataset.lane = 'left';
+
+                // Pagar Kanan
+                let gateR = document.createElement('div');
+                gateR.className = 'hurdle-gate';
+                gateR.innerHTML = `<span class="hurdle-text">${rightText}</span>`;
+                gateR.dataset.isCorrect = !isLeftCorrect ? 'true' : 'false';
+                gateR.dataset.lane = 'right';
+
+                // Click Events
+                const interactEvent = (e) => {
+                    e.preventDefault();
+                    if(!this.isPlaying || this.isJumping) return;
+                    let targetGate = e.currentTarget;
+                    this.evaluateJump(targetGate, row);
+                };
+
+                gateL.addEventListener('mousedown', interactEvent);
+                gateL.addEventListener('touchstart', interactEvent);
+                gateR.addEventListener('mousedown', interactEvent);
+                gateR.addEventListener('touchstart', interactEvent);
+
+                row.appendChild(gateL);
+                row.appendChild(gateR);
+
+                // Buang lepas melepasi skrin bawah
+                row.addEventListener('animationend', () => {
+                    if(row.parentNode) row.remove();
+                });
+
+                // Kelajuan jatuh pagar
+                let dur = this.timeLeft < 10 ? 2 : 2.5; 
+                row.style.animationDuration = dur + 's';
+
+                UI.arena.appendChild(row);
+            },
+
+            evaluateJump: function(targetGate, rowEl) {
+                this.isJumping = true;
+                let isCorrect = (targetGate.dataset.isCorrect === 'true');
+                let lane = targetGate.dataset.lane;
+
+                // Gerak pelari ke lorong yang dipilih
+                UI.moveRunner(lane);
+
+                if(isCorrect) {
+                    // Berjaya Lompat
+                    UI.playAnim('jump');
+                    SFX.correct();
+                    Data.scores[this.currentTeam] += 10;
+                    UI.showFloatText("+10", true, lane === 'left' ? -30 : 30);
+                    
+                    // Pudar pagar tanda berjaya rentas
+                    targetGate.style.opacity = '0.2';
+                    targetGate.style.borderColor = 'var(--neon-lime)';
+                    
+                    this.pickMission(); // Tukar misi pantas
+                } else {
+                    // Gagal Langgar Pagar
+                    UI.playAnim('crash');
+                    SFX.wrong();
+                    Data.scores[this.currentTeam] -= 5;
+                    UI.showFloatText("-5", false, lane === 'left' ? -30 : 30);
+                    
+                    targetGate.style.borderColor = 'var(--neon-red)';
+                    targetGate.style.background = 'rgba(255,0,0,0.5)';
+                }
+
+                UI.updateScoreboard(this.currentTeam);
+
+                // Buka kunci pelari lepas animasi
+                setTimeout(() => {
+                    this.isJumping = false;
+                    UI.moveRunner('center');
+                    if(rowEl && rowEl.parentNode) rowEl.remove(); // Terus buang pagar tu
+                }, 600);
+            },
+
+            endTurn: function() {
+                clearInterval(this.timerId);
+                clearInterval(this.spawnerId);
+                this.isPlaying = false;
+                
+                UI.clearHurdles();
+                UI.mission.innerText = "MASA TAMAT!";
+                UI.moveRunner('center');
+                
+                setTimeout(() => {
+                    this.currentTeam++;
+                    if(this.currentTeam >= Data.teams) {
+                        this.endMatch();
+                    } else {
+                        this.startTurn();
+                    }
+                }, 3000);
+            },
+
+            endMatch: function() {
+                document.getElementById('end-screen').style.display = 'flex';
+                let resDiv = document.getElementById('final-results');
+                resDiv.innerHTML = '';
+                
+                let maxScore = Math.max(...Data.scores);
+                let winners = [];
+                Data.scores.forEach((score, idx) => {
+                    if(score === maxScore) winners.push(idx + 1);
+                    resDiv.innerHTML += `Kumpulan ${idx + 1} : ${score} Mata <br>`;
+                });
+                
+                resDiv.innerHTML += `<br><strong style="color:var(--neon-lime)">🏆 TAHNIAH KUMPULAN ${winners.join(' & ')}!</strong>`;
+            }
+        };
+
+        // =====================================================================
+        // MODUL EDITOR (GURU)
+        // =====================================================================
+        const Editor = {
+            overlay: document.getElementById('overlay-editor'),
+            tbody: document.getElementById('editor-tbody'),
+
+            openModal: function() {
+                if(Game.isPlaying) { Game.endTurn(); } 
+                this.overlay.style.display = 'block'; this.render();
+            },
+            closeModal: function() { this.overlay.style.display = 'none'; },
+            
+            render: function() {
+                this.tbody.innerHTML = '';
+                Data.questions.forEach((q, idx) => {
+                    let tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${idx + 1}</td>
+                        <td class="td-arab">
+                            <span style="color:var(--neon-cyan);">${q.q}</span><br>
+                            <span style="font-size:0.9rem; color:#aaa; direction:ltr;">A: ${q.options[0]} | B: ${q.options[1]} (Tepat: ${q.answer===0?'A':'B'})</span>
+                        </td>
+                        <td><button class="del-btn" onclick="Editor.delete(${idx})">🗑️</button></td>
+                    `;
+                    this.tbody.appendChild(tr);
+                });
+            },
+
+            saveQuestion: function() {
+                let m = document.getElementById('edit-q-text').value.trim();
+                let o1 = document.getElementById('edit-opt-1').value.trim();
+                let o2 = document.getElementById('edit-opt-2').value.trim();
+                let ans = parseInt(document.getElementById('edit-ans').value);
+
+                if (!m || !o1 || !o2) return alert("Sila isi semua ruang kosong!");
+                Data.questions.push({ q: m, options: [o1, o2], answer: ans });
+                Data.save(); this.render();
+                
+                document.getElementById('edit-q-text').value = '';
+                document.getElementById('edit-opt-1').value = ''; document.getElementById('edit-opt-2').value = '';
+            },
+
+            delete: function(idx) { if(confirm("Padam misi ini?")) { Data.questions.splice(idx, 1); Data.save(); this.render(); } },
+            resetData: function() { if(confirm("Riset ke bank soalan asal KAFA?")) { Data.questions = [...Data.defaultQuestions]; Data.save(); this.render(); } }
+        };
+
+    </script>
+</body>
+</html>

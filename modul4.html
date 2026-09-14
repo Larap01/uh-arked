@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Game 4: Tarik Tali - KAFA Arked</title>
+    <style>
+        :root {
+            --bg-dark: #090514;
+            --bg-grid: rgba(181, 56, 255, 0.1);
+            --glass-bg: rgba(20, 15, 35, 0.7);
+            --glass-border: rgba(181, 56, 255, 0.3);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+            --neon-purple: #b538ff;
+            --neon-cyan: #00f3ff;
+            --neon-magenta: #ff00ea;
+            --neon-gold: #ffd700;
+            --neon-red: #ff2a2a;
+            --neon-green: #39ff14;
+            --text-main: #f8fafc;
+            --font-ui: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --font-arab: 'Traditional Arabic', 'Amiri', serif;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body, html { width: 100vw; height: 100vh; overflow: hidden; background-color: var(--bg-dark); font-family: var(--font-ui); color: var(--text-main); user-select: none; }
+        body::before { content: ''; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-image: linear-gradient(var(--bg-grid) 1px, transparent 1px), linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px); background-size: 50px 50px; z-index: -2; animation: panGrid 20s linear infinite; }
+        @keyframes panGrid { 0% { background-position: 0 0; } 100% { background-position: 50px 50px; } }
+        .ambient-light { position: fixed; width: 40vw; height: 100vh; filter: blur(100px); z-index: -1; opacity: 0.3; }
+        .light-left { left: 0; background: linear-gradient(to right, var(--neon-magenta), transparent); }
+        .light-right { right: 0; background: linear-gradient(to left, var(--neon-cyan), transparent); }
+        #arena-container { position: absolute; top: 15%; left: 0; width: 100vw; height: 40vh; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        #match-info { font-size: 1.5rem; font-weight: bold; color: var(--neon-gold); text-transform: uppercase; letter-spacing: 3px; text-shadow: 0 0 15px var(--neon-gold); margin-bottom: 30px; background: rgba(0,0,0,0.5); padding: 5px 20px; border-radius: 20px; border: 1px solid var(--neon-gold); }
+        .tow-field { position: relative; width: 90%; max-width: 1000px; height: 120px; display: flex; align-items: center; justify-content: space-between; }
+        .team-avatar { width: 100px; height: 100px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1.5rem; font-weight: bold; color: white; text-align: center; z-index: 10; transition: 0.3s; box-shadow: 0 0 20px rgba(0,0,0,0.8); border: 4px solid #555; background: #111; text-transform: uppercase; }
+        .team-left { border-color: var(--neon-magenta); box-shadow: 0 0 25px var(--neon-magenta); }
+        .team-right { border-color: var(--neon-cyan); box-shadow: 0 0 25px var(--neon-cyan); }
+        .team-avatar.active-turn { transform: scale(1.15); }
+        .team-left.active-turn { box-shadow: 0 0 40px var(--neon-magenta), inset 0 0 15px var(--neon-magenta); }
+        .team-right.active-turn { box-shadow: 0 0 40px var(--neon-cyan), inset 0 0 15px var(--neon-cyan); }
+        .rope-track { position: absolute; left: 110px; right: 110px; height: 12px; background: repeating-linear-gradient(90deg, rgba(255,255,255,0.2) 0, rgba(255,255,255,0.2) 10px, transparent 10px, transparent 20px); border-top: 2px solid rgba(255,255,255,0.5); border-bottom: 2px solid rgba(255,255,255,0.5); box-shadow: 0 0 15px var(--neon-purple); z-index: 5; }
+        .rope-knot { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 35px; height: 35px; background: var(--neon-gold); border-radius: 50%; border: 4px solid #fff; box-shadow: 0 0 25px var(--neon-gold), inset 0 0 10px #000; z-index: 6; transition: left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .glass-panel { background: var(--glass-bg); backdrop-filter: blur(15px); border: 1px solid var(--glass-border); border-radius: 15px; box-shadow: var(--glass-shadow); }
+        #quiz-hud { position: absolute; bottom: 5%; left: 50%; transform: translateX(-50%); width: 90%; max-width: 800px; padding: 25px; text-align: center; z-index: 50; display: none; flex-direction: column; gap: 20px; border-top: 4px solid var(--neon-purple); border-bottom: 4px solid var(--neon-purple); }
+        #quiz-hud.show { display: flex; }
+        #q-status { font-size: 1.3rem; text-transform: uppercase; font-weight: bold; letter-spacing: 2px; }
+        .status-left { color: var(--neon-magenta); text-shadow: 0 0 10px var(--neon-magenta); }
+        .status-right { color: var(--neon-cyan); text-shadow: 0 0 10px var(--neon-cyan); }
+        #q-text { font-size: 2.5rem; font-weight: bold; color: #fff; text-shadow: 0 0 15px rgba(255, 255, 255, 0.5); direction: rtl; font-family: var(--font-arab); }
+        .btn-group { display: flex; gap: 15px; justify-content: center; }
+        .ans-btn { flex: 1; padding: 15px; font-size: 1.8rem; font-weight: bold; border-radius: 12px; background: rgba(0,0,0,0.6); border: 2px solid rgba(255,255,255,0.2); color: white; cursor: pointer; transition: 0.3s; direction: rtl; font-family: var(--font-arab); }
+        .ans-btn:hover { background: rgba(255,255,255,0.15); transform: scale(1.05); border-color: var(--neon-gold); box-shadow: 0 0 20px var(--neon-gold); }
+        .float-score { position: absolute; font-size: 2rem; font-weight: bold; z-index: 100; pointer-events: none; animation: floatUp 1.5s ease-out forwards; }
+        .float-correct { color: var(--neon-green); text-shadow: 0 0 15px var(--neon-green); }
+        .float-wrong { color: var(--neon-red); text-shadow: 0 0 15px var(--neon-red); }
+        @keyframes floatUp { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-80px); opacity: 0; } }
+        #btn-settings { position: absolute; top: 20px; left: 20px; width: 60px; height: 60px; border-radius: 50%; background: var(--glass-bg); border: 2px solid var(--neon-purple); color: var(--neon-purple); font-size: 1.8rem; display: flex; justify-content: center; align-items: center; cursor: pointer; z-index: 100; transition: 0.4s; box-shadow: 0 0 15px rgba(181, 56, 255, 0.3); }
+        #btn-settings:hover { transform: rotate(90deg) scale(1.1); box-shadow: 0 0 25px var(--neon-purple); }
+        #tournament-board { position: absolute; top: 20px; right: 20px; width: 250px; padding: 15px; z-index: 100; border-right: 3px solid var(--neon-purple); }
+        .bracket-title { font-size: 1rem; color: var(--neon-gold); margin-bottom: 10px; text-transform: uppercase; font-weight: bold; }
+        .match-row { display: flex; justify-content: space-between; padding: 8px 10px; margin-bottom: 5px; border-radius: 6px; font-weight: bold; font-size: 1rem; background: rgba(255,255,255,0.05); }
+        .match-row.active-match { background: rgba(181, 56, 255, 0.25); border: 1px solid var(--neon-purple); box-shadow: 0 0 10px var(--neon-purple); }
+        .match-row.done { opacity: 0.5; text-decoration: line-through; }
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); z-index: 1000; }
+        .modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; padding: 30px; direction: ltr; }
+        .modal::-webkit-scrollbar { width: 8px; } .modal::-webkit-scrollbar-thumb { background: var(--neon-purple); border-radius: 4px; }
+        .modal h2 { text-align: center; color: var(--neon-purple); font-size: 2rem; text-shadow: 0 0 15px var(--neon-purple); margin-bottom: 25px; border-bottom: 2px solid rgba(181, 56, 255, 0.3); padding-bottom: 15px; }
+        .close-btn { position: absolute; top: 20px; right: 20px; background: none; border: none; color: #fff; font-size: 2rem; cursor: pointer; transition: 0.3s; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 8px; color: var(--neon-cyan); }
+        .form-control { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.6); color: white; font-size: 1.1rem; }
+        .btn { padding: 12px 25px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.3s; text-align: center; border: 2px solid transparent; width: 100%; }
+        .btn-primary { background: rgba(181, 56, 255, 0.1); border-color: var(--neon-purple); color: var(--neon-purple); }
+        .btn-danger { background: rgba(255, 0, 60, 0.1); border-color: var(--neon-red); color: var(--neon-red); margin-top: 15px; }
+        .btn-home { background: rgba(0, 243, 255, 0.1); border-color: var(--neon-cyan); color: var(--neon-cyan); text-decoration: none; display: block; margin-top: 15px; }
+        .table-wrap { max-height: 250px; overflow-y: auto; border: 1px solid var(--glass-border); border-radius: 10px; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        th { background: rgba(0,0,0,0.8); color: var(--neon-purple); position: sticky; top: 0; }
+        .td-arab { direction: rtl; font-size: 1.3rem; font-weight: bold; font-family: var(--font-arab); }
+        .del-btn { background: none; border: none; color: var(--neon-red); font-size: 1.2rem; cursor: pointer; }
+        .fs-screen { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(5, 5, 15, 0.95); z-index: 500; }
+        .fs-screen h1 { font-size: 4rem; color: var(--neon-purple); text-shadow: 0 0 20px var(--neon-purple); margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="ambient-light light-left"></div>
+    <div class="ambient-light light-right"></div>
+    <button id="btn-settings" onclick="Editor.openModal()" title="Tetapan">⚙️</button>
+    <div id="start-screen" class="fs-screen">
+        <h1>🪢 TARIK TALI NEON</h1>
+        <p style="font-size: 1.2rem; margin-bottom: 40px; color: var(--text-muted); max-width: 600px;">
+            Sistem perlawanan <strong>Kalah Mati (Tournament)</strong>.<br>Jawab betul untuk tarik tali ke arah anda!
+        </p>
+        <button class="btn btn-primary" style="max-width: 300px; font-size: 1.5rem;" onclick="Tournament.start()">▶ MULA KEJOHANAN</button>
+    </div>
+    <div id="end-screen" class="fs-screen" style="display: none;">
+        <h1 style="color:var(--neon-gold); text-shadow:0 0 20px var(--neon-gold);">🏆 JUARA KESELURUHAN</h1>
+        <div id="final-winner" style="font-size: 3rem; margin-bottom: 30px; font-weight: bold; color: white;">KUMPULAN X</div>
+        <button class="btn btn-primary" style="max-width: 300px; margin-bottom: 15px; border-color:var(--neon-gold); color:var(--neon-gold);" onclick="location.reload()">🔄 KEJOHANAN BARU</button>
+        <a href="index.html" class="btn btn-home" style="max-width: 300px;">🏠 HALAMAN UTAMA</a>
+    </div>
+    <div id="tournament-board" class="glass-panel">
+        <div class="bracket-title" id="bracket-stage">Suku Akhir</div>
+        <div id="match-list"></div>
+    </div>
+    <div id="arena-container">
+        <div id="match-info">KUMP A lwn KUMP B</div>
+        <div class="tow-field">
+            <div id="team-left" class="team-avatar team-left">A</div>
+            <div class="rope-track"><div id="rope-knot" class="rope-knot"></div></div>
+            <div id="team-right" class="team-avatar team-right">B</div>
+        </div>
+    </div>
+    <div id="quiz-hud" class="glass-panel">
+        <div id="q-status">GILIRAN KUMPULAN</div>
+        <div id="q-text">Soalan muncul di sini</div>
+        <div class="btn-group">
+            <button class="ans-btn" onclick="Game.submitAnswer(0)" id="btn-a">Pilihan A</button>
+            <button class="ans-btn" onclick="Game.submitAnswer(1)" id="btn-b">Pilihan B</button>
+        </div>
+    </div>
+    <div id="overlay-editor" class="overlay">
+        <div class="glass-panel modal" id="editor-modal">
+            <button class="close-btn" onclick="Editor.closeModal()">✖</button>
+            <h2>⚙️ EDITOR SOALAN TARIK TALI</h2>
+            <div style="background: rgba(0,0,0,0.4); padding: 25px; border-radius: 15px; border: 1px dashed var(--neon-purple); margin-bottom: 20px;">
+                <h3 style="color:var(--neon-cyan); margin-bottom: 15px;">➕ Tambah Soalan</h3>
+                <div class="form-group"><label>Soalan:</label><input type="text" id="edit-q-text" class="form-control" dir="rtl"></div>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                    <div class="form-group" style="flex: 1;"><label>Pilihan A:</label><input type="text" id="edit-opt-1" class="form-control" dir="rtl"></div>
+                    <div class="form-group" style="flex: 1;"><label>Pilihan B:</label><input type="text" id="edit-opt-2" class="form-control" dir="rtl"></div>
+                </div>
+                <div class="form-group"><label>Jawapan Tepat:</label><select id="edit-ans" class="form-control"><option value="0">Pilihan A</option><option value="1">Pilihan B</option></select></div>
+                <button class="btn btn-primary" onclick="Editor.saveQuestion()">💾 SIMPAN</button>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th style="width: 40px;">No.</th><th>Soalan</th><th style="width: 50px;">Aksi</th></tr></thead>
+                    <tbody id="editor-tbody"></tbody>
+                </table>
+            </div>
+            <button class="btn btn-danger" onclick="Editor.resetData()">🔄 RESET</button>
+            <a href="index.html" class="btn btn-home">🏠 HALAMAN UTAMA</a>
+        </div>
+    </div>
+    <script>
+        const SFX = {
+            ctx: null,
+            playTone: function(freq, type, duration, vol=0.4) {
+                if(localStorage.getItem('kafaSfx') === 'off') return;
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if(!this.ctx && AudioContext) this.ctx = new AudioContext();
+                if(!this.ctx) return;
+                try {
+                    let osc = this.ctx.createOscillator();
+                    let gain = this.ctx.createGain();
+                    osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(); osc.stop(this.ctx.currentTime + duration);
+                } catch(e){}
+            },
+            correct: function() {
+                this.playTone(400, 'sine', 0.1, 0.4);
+                setTimeout(() => this.playTone(600, 'sine', 0.1, 0.4), 100);
+            },
+            wrong: function() { this.playTone(180, 'square', 0.3, 0.4); }
+        };
+
+        const Data = {
+            numTeams: parseInt(localStorage.getItem('kafaMultiplayerTeams')) || 4,
+            questions: [],
+            defaultQuestions: [
+                { q: "الإِسْمُ : ( الْمَاءُ / يَفْتَحُ )", options: ["الْمَاءُ", "يَفْتَحُ"], answer: 0 },
+                { q: "الفِعْلُ : ( شَوْكَةٌ / يُعْطِي )", options: ["شَوْكَةٌ", "يُعْطِي"], answer: 1 }
+            ],
+            init: function() {
+                let saved = localStorage.getItem('kafaQuestionsModul4');
+                if(saved) { try { this.questions = JSON.parse(saved); } catch(e) { this.questions = [...this.defaultQuestions]; } }
+                else { this.questions = [...this.defaultQuestions]; }
+            },
+            save: function() { localStorage.setItem('kafaQuestionsModul4', JSON.stringify(this.questions)); }
+        };
+
+        const Tournament = {
+            activeTeams: [], nextRoundTeams: [], matches: [], currentMatchIndex: 0, stageName: "",
+            start: function() {
+                document.getElementById('start-screen').style.display = 'none';
+                Data.init();
+                for(let i = 1; i <= Data.numTeams; i++) this.activeTeams.push(i);
+                this.buildBracket();
+            },
+            buildBracket: function() {
+                this.matches = []; this.currentMatchIndex = 0; this.nextRoundTeams = [];
+                let count = this.activeTeams.length;
+                if(count > 4) this.stageName = "Suku Akhir";
+                else if(count > 2) this.stageName = "Separuh Akhir";
+                else if(count === 2) this.stageName = "Akhir (Final)";
+                else { this.declareChampion(this.activeTeams[0]); return; }
+                document.getElementById('bracket-stage').innerText = "Peringkat: " + this.stageName;
+                for(let i = 0; i < this.activeTeams.length; i += 2) {
+                    if(this.activeTeams[i+1]) this.matches.push([this.activeTeams[i], this.activeTeams[i+1]]);
+                    else this.nextRoundTeams.push(this.activeTeams[i]);
+                }
+                this.renderBracket(); this.startMatch();
+            },
+            renderBracket: function() {
+                let list = document.getElementById('match-list'); list.innerHTML = '';
+                this.matches.forEach((m, idx) => {
+                    let row = document.createElement('div');
+                    row.className = `match-row ${idx === this.currentMatchIndex ? 'active-match' : ''} ${idx < this.currentMatchIndex ? 'done' : ''}`;
+                    row.innerText = `Kump ${m[0]} lwn Kump ${m[1]}`;
+                    list.appendChild(row);
+                });
+            },
+            startMatch: function() {
+                if(this.currentMatchIndex >= this.matches.length) {
+                    this.activeTeams = [...this.nextRoundTeams];
+                    this.buildBracket();
+                    return;
+                }
+                this.renderBracket();
+                let match = this.matches[this.currentMatchIndex];
+                Game.initMatch(match[0], match[1]);
+            },
+            matchWon: function(winnerTeam) {
+                this.nextRoundTeams.push(winnerTeam);
+                this.currentMatchIndex++;
+                setTimeout(() => this.startMatch(), 2500);
+            },
+            declareChampion: function(teamIdx) {
+                document.getElementById('end-screen').style.display = 'flex';
+                document.getElementById('final-winner').innerText = `KUMPULAN ${teamIdx}`;
+            }
+        };
+
+        const Game = {
+            tLeft: 0, tRight: 0, ropePos: 50, currentTurn: 0, currentQ: null, pullPower: 20,
+            initMatch: function(leftTeam, rightTeam) {
+                this.tLeft = leftTeam; this.tRight = rightTeam; this.ropePos = 50; this.currentTurn = 0;
+                document.getElementById('match-info').innerText = `KUMP ${this.tLeft} lwn KUMP ${this.tRight}`;
+                document.getElementById('team-left').innerText = `K-${this.tLeft}`;
+                document.getElementById('team-right').innerText = `K-${this.tRight}`;
+                document.getElementById('team-left').className = 'team-avatar team-left';
+                document.getElementById('team-right').className = 'team-avatar team-right';
+                this.updateRopeVisual();
+                this.nextTurn();
+            },
+            nextTurn: function() {
+                if(Data.questions.length === 0) Data.questions = [...Data.defaultQuestions];
+                this.currentQ = Data.questions[Math.floor(Math.random() * Data.questions.length)];
+                let statusEl = document.getElementById('q-status');
+                let leftAvatar = document.getElementById('team-left');
+                let rightAvatar = document.getElementById('team-right');
+                leftAvatar.classList.remove('active-turn'); rightAvatar.classList.remove('active-turn');
+                if(this.currentTurn === 0) {
+                    statusEl.innerText = `GILIRAN: KUMPULAN ${this.tLeft} (KIRI)`;
+                    statusEl.className = 'status-left';
+                    leftAvatar.classList.add('active-turn');
+                } else {
+                    statusEl.innerText = `GILIRAN: KUMPULAN ${this.tRight} (KANAN)`;
+                    statusEl.className = 'status-right';
+                    rightAvatar.classList.add('active-turn');
+                }
+                document.getElementById('q-text').innerText = this.currentQ.q;
+                document.getElementById('btn-a').innerText = this.currentQ.options[0];
+                document.getElementById('btn-b').innerText = this.currentQ.options[1];
+                document.getElementById('quiz-hud').classList.add('show');
+            },
+            submitAnswer: function(optIdx) {
+                document.getElementById('quiz-hud').classList.remove('show');
+                let isCorrect = (optIdx === this.currentQ.answer);
+                let knot = document.getElementById('rope-knot');
+                let activeAvatar = (this.currentTurn === 0) ? document.getElementById('team-left') : document.getElementById('team-right');
+                
+                if(isCorrect) {
+                    SFX.correct();
+                    this.ropePos += (this.currentTurn === 0) ? -this.pullPower : this.pullPower;
+                } else {
+                    SFX.wrong();
+                    this.ropePos += (this.currentTurn === 0) ? this.pullPower : -this.pullPower;
+                }
+                this.updateRopeVisual();
+                if(this.ropePos <= 10) { this.endMatch(0); return; }
+                if(this.ropePos >= 90) { this.endMatch(1); return; }
+                this.currentTurn = (this.currentTurn === 0) ? 1 : 0;
+                setTimeout(() => this.nextTurn(), 1500);
+            },
+            updateRopeVisual: function() {
+                if(this.ropePos < 0) this.ropePos = 0; if(this.ropePos > 100) this.ropePos = 100;
+                document.getElementById('rope-knot').style.left = `${this.ropePos}%`;
+            },
+            endMatch: function(winnerSide) {
+                let winnerName = "";
+                if(winnerSide === 0) {
+                    winnerName = `KUMPULAN ${this.tLeft}`;
+                    document.getElementById('team-left').classList.add('win');
+                    Tournament.matchWon(this.tLeft);
+                } else {
+                    winnerName = `KUMPULAN ${this.tRight}`;
+                    document.getElementById('team-right').classList.add('win');
+                    Tournament.matchWon(this.tRight);
+                }
+                document.getElementById('q-status').innerText = `🏁 PERLAWANAN TAMAT`;
+                document.getElementById('q-text').innerText = `${winnerName} MENANG!`;
+                document.getElementById('quiz-hud').classList.add('show');
+            }
+        };
+
+        const Editor = {
+            overlay: document.getElementById('overlay-editor'),
+            tbody: document.getElementById('editor-tbody'),
+            openModal: function() { this.overlay.style.display = 'block'; this.render(); },
+            closeModal: function() { this.overlay.style.display = 'none'; },
+            render: function() {
+                this.tbody.innerHTML = '';
+                Data.questions.forEach((q, idx) => {
+                    let tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${idx + 1}</td><td class="td-arab">${q.q}</td><td><button class="del-btn" onclick="Editor.delete(${idx})">🗑️</button></td>`;
+                    this.tbody.appendChild(tr);
+                });
+            },
+            saveQuestion: function() {
+                let m = document.getElementById('edit-q-text').value.trim();
+                let o1 = document.getElementById('edit-opt-1').value.trim();
+                let o2 = document.getElementById('edit-opt-2').value.trim();
+                let ans = parseInt(document.getElementById('edit-ans').value);
+                if (!m || !o1 || !o2) return alert("Isi semua!");
+                Data.questions.push({ q: m, options: [o1, o2], answer: ans });
+                Data.save(); this.render();
+            },
+            delete: function(idx) { Data.questions.splice(idx, 1); Data.save(); this.render(); },
+            resetData: function() { Data.questions = [...Data.defaultQuestions]; Data.save(); this.render(); }
+        };
+    </script>
+</body>
+</html>

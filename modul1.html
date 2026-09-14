@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Game 1: Bounce (Neon Platformer) - KAFA Arked</title>
+    <style>
+        /* ==========================================================================
+           1. PEMBOLEH UBAH TEMA & ZON (DYNAMIC NEON GLASSMORPHISM)
+           ========================================================================== */
+        :root {
+            --bg-dark: #05050f;
+            --glass-bg: rgba(10, 15, 30, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-main: #ffffff;
+            --font-game: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --tile-size: 50px;
+        }
+
+        /* ZON 1: Cyberpunk (Kotak 1 - 10) */
+        body.theme-1 {
+            --neon-primary: #00f3ff;
+            --neon-secondary: #ff00ea;
+            --bg-grid: rgba(0, 255, 255, 0.05);
+        }
+
+        /* ZON 2: Toxic Biohazard (Kotak 11 - 20) */
+        body.theme-2 {
+            --neon-primary: #39ff14;
+            --neon-secondary: #9d00ff;
+            --bg-grid: rgba(57, 255, 20, 0.05);
+        }
+
+        /* ZON 3: Inferno / Lava (Kotak 21 - 30) */
+        body.theme-3 {
+            --neon-primary: #ffea00;
+            --neon-secondary: #ff3333;
+            --bg-grid: rgba(255, 51, 51, 0.05);
+        }
+
+        /* ==========================================================================
+           2. RESET & TETAPAN BADAN (BODY)
+           ========================================================================== */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body, html {
+            width: 100vw; height: 100vh; overflow: hidden;
+            background-color: var(--bg-dark);
+            font-family: var(--font-game);
+            color: var(--text-main);
+            touch-action: none; user-select: none;
+            transition: --neon-primary 1s, --neon-secondary 1s, --bg-grid 1s; /* Transisi Tema */
+        }
+
+        /* Latar Belakang Grid Bergerak */
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-image: 
+                linear-gradient(var(--bg-grid) 1px, transparent 1px),
+                linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: -2; pointer-events: none;
+            transition: background-image 1s ease;
+        }
+
+        /* ==========================================================================
+           3. SISTEM KAMERA & DUNIA PERMAINAN (WORLD)
+           ========================================================================== */
+        #game-container { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+        #world {
+            position: absolute; top: 0; left: 0;
+            will-change: transform; transform-origin: 0 0;
+            transition: transform 0.08s linear;
+        }
+        #map-layer, #entity-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+        /* ==========================================================================
+           4. GRAFIK JUBIN (TILES) - BERTUKAR IKUT TEMA
+           ========================================================================== */
+        .tile { position: absolute; width: var(--tile-size); height: var(--tile-size); transition: all 0.5s; }
+
+        .ground {
+            background: rgba(0, 0, 0, 0.6);
+            border-top: 3px solid var(--neon-primary);
+            box-shadow: inset 0 10px 20px -10px var(--neon-primary), 0 -2px 10px rgba(0,0,0,0.5);
+        }
+
+        .wall {
+            background: rgba(0, 0, 0, 0.8);
+            border-left: 3px solid var(--neon-secondary);
+            border-right: 3px solid var(--neon-secondary);
+            box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.05);
+        }
+
+        .ladder {
+            background: repeating-linear-gradient(0deg, transparent, transparent 10px, rgba(255, 255, 255, 0.2) 10px, rgba(255, 255, 255, 0.2) 15px);
+            border-left: 3px solid var(--text-main); border-right: 3px solid var(--text-main);
+            opacity: 0.6; box-shadow: 0 0 10px rgba(255,255,255,0.3);
+        }
+
+        .q-box {
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid var(--neon-primary); border-radius: 8px;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 1.8rem; font-weight: bold; color: var(--neon-primary);
+            text-shadow: 0 0 10px var(--neon-primary);
+            box-shadow: 0 0 15px var(--neon-primary), inset 0 0 10px rgba(255, 255, 255, 0.1);
+            animation: floatPulse 2s infinite ease-in-out; z-index: 5;
+        }
+        
+        .q-box.used {
+            background: rgba(100, 100, 100, 0.2); border-color: #555; color: #555;
+            box-shadow: none; text-shadow: none; animation: none;
+        }
+
+        @keyframes floatPulse {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-6px) scale(1.05); }
+        }
+
+        /* ==========================================================================
+           5. PEMAIN (PLAYER ENTITY)
+           ========================================================================== */
+        #player {
+            position: absolute; width: 36px; height: 36px; 
+            background: radial-gradient(circle at 30% 30%, #fff, var(--neon-primary));
+            border-radius: 50%; z-index: 10; transition: transform 0.1s, background 0.5s, box-shadow 0.5s;
+            box-shadow: 0 0 20px var(--neon-primary), inset -5px -5px 15px rgba(0,0,0,0.5);
+        }
+        
+        .float-score {
+            position: absolute; font-size: 2.5rem; font-weight: bold;
+            color: var(--neon-primary); text-shadow: 0 0 15px var(--neon-primary), 0 0 5px #fff;
+            z-index: 100; pointer-events: none; animation: scoreUp 1.5s ease-out forwards;
+        }
+        @keyframes scoreUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-100px) scale(1.5); opacity: 0; }
+        }
+
+        /* ==========================================================================
+           6. ANTARAMUKA PENGGUNA (HUD)
+           ========================================================================== */
+        .glass-panel {
+            background: var(--glass-bg); backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border); border-radius: 15px; color: #fff;
+            box-shadow: 0 8px 32px 0 rgba(0,0,0,0.5);
+        }
+
+        #scoreboard {
+            position: fixed; top: 20px; right: 20px; padding: 15px 25px;
+            font-size: 1.2rem; font-weight: bold; z-index: 100;
+            border-left: 4px solid var(--neon-primary); transition: border-color 0.5s;
+        }
+        .team-active { color: var(--neon-primary); text-shadow: 0 0 10px var(--neon-primary); font-size: 1.4rem; transition: color 0.5s; }
+
+        #toast {
+            position: fixed; top: 15%; left: 50%; transform: translateX(-50%);
+            padding: 15px 40px; font-size: 1.5rem; font-weight: bold; border-radius: 30px;
+            text-align: center; z-index: 150; opacity: 0; pointer-events: none;
+            transition: opacity 0.4s; border: 2px solid var(--neon-secondary);
+            background: rgba(0, 0, 0, 0.8); box-shadow: 0 0 20px var(--neon-secondary);
+        }
+
+        #btn-settings {
+            position: fixed; top: 20px; left: 20px; width: 55px; height: 55px;
+            border-radius: 50%; background: var(--glass-bg); border: 2px solid var(--neon-primary);
+            color: var(--neon-primary); font-size: 1.8rem; cursor: pointer;
+            z-index: 100; display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5); transition: 0.3s;
+        }
+        #btn-settings:hover { transform: rotate(90deg) scale(1.1); box-shadow: 0 0 25px var(--neon-primary); }
+
+        /* ==========================================================================
+           7. KAWALAN MAYA BERGERAK (VIRTUAL D-PAD)
+           ========================================================================== */
+        #virtual-dpad {
+            position: fixed; bottom: 30px; left: 30px; right: 30px;
+            display: flex; justify-content: space-between; z-index: 100; pointer-events: none;
+        }
+        .dpad-cluster { display: flex; gap: 15px; pointer-events: auto; }
+        .dpad-btn {
+            width: 75px; height: 75px; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white; font-size: 2.2rem; display: flex; justify-content: center; align-items: center;
+            cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5); transition: 0.1s;
+        }
+        .dpad-btn:active, .dpad-btn.pressed {
+            background: rgba(255, 255, 255, 0.3); border-color: var(--neon-primary);
+            box-shadow: 0 0 20px var(--neon-primary); transform: scale(0.9);
+        }
+        @media (min-width: 1024px) { #virtual-dpad { opacity: 0.4; } }
+
+        /* ==========================================================================
+           8. MODAL KUIZ & EDITOR SOALAN (GURU)
+           ========================================================================== */
+        .overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px); z-index: 1000;
+        }
+        .modal {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 90%; max-width: 650px; max-height: 90vh; overflow-y: auto; padding: 30px;
+        }
+        .modal::-webkit-scrollbar { width: 8px; }
+        .modal::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 4px; }
+        .modal::-webkit-scrollbar-thumb { background: var(--neon-primary); border-radius: 4px; }
+
+        /* Kuiz In-Game */
+        #quiz-modal { direction: rtl; text-align: center; }
+        #quiz-modal h2 { font-size: 2.2rem; color: var(--neon-primary); margin-bottom: 30px; text-shadow: 0 0 10px var(--neon-primary); }
+        .ans-btn {
+            display: block; width: 100%; padding: 20px; margin-bottom: 15px; font-size: 1.6rem; font-weight: bold;
+            border-radius: 12px; cursor: pointer; background: rgba(0,0,0,0.5);
+            border: 2px solid var(--neon-secondary); color: white; transition: 0.3s; direction: rtl;
+        }
+        .ans-btn:hover { background: rgba(255,255,255,0.2); box-shadow: 0 0 15px var(--neon-secondary); transform: scale(1.03); }
+
+        /* Editor Modal */
+        #editor-modal { direction: ltr; max-width: 850px; }
+        #editor-modal h2 { text-align: center; color: var(--neon-primary); font-size: 2rem; margin-bottom: 20px; border-bottom: 2px solid var(--glass-border); padding-bottom: 15px; }
+        .close-editor { position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; }
+        .close-editor:hover { color: #ff3333; text-shadow: 0 0 10px #ff3333; }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 8px; color: var(--neon-primary); }
+        .form-control { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.6); color: white; font-size: 1.1rem; }
+        .form-control:focus { outline: none; border-color: var(--neon-primary); box-shadow: 0 0 10px var(--neon-primary); }
+        
+        .btn-action {
+            background: rgba(255,255,255,0.1); border: 2px solid var(--neon-primary); color: var(--neon-primary);
+            padding: 12px 20px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.3s; width: 100%; margin-top: 10px;
+        }
+        .btn-action:hover { background: var(--neon-primary); color: #000; box-shadow: 0 0 15px var(--neon-primary); }
+        .btn-danger { border-color: #ff3333; color: #ff3333; background: rgba(255,51,51,0.1); }
+        .btn-danger:hover { background: #ff3333; color: #fff; box-shadow: 0 0 15px #ff3333; }
+        .btn-home { border-color: var(--neon-secondary); color: var(--neon-secondary); text-decoration: none; display: block; text-align: center; margin-top: 25px; }
+        .btn-home:hover { background: var(--neon-secondary); color: #fff; box-shadow: 0 0 15px var(--neon-secondary); }
+
+        .table-container { margin-top: 30px; max-height: 250px; overflow-y: auto; border: 1px solid var(--glass-border); border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { background: rgba(0,0,0,0.8); color: var(--neon-primary); position: sticky; top: 0; }
+        tr:hover { background: rgba(255,255,255,0.1); }
+        .td-arab { direction: rtl; font-size: 1.2rem; font-weight: bold; }
+        .del-btn { background: none; border: none; color: #ff3333; font-size: 1.2rem; cursor: pointer; }
+        .del-btn:hover { transform: scale(1.3); }
+
+    </style>
+</head>
+<body class="theme-1">
+
+    <button id="btn-settings" onclick="GameApp.Editor.open()" title="Tetapan & Editor">⚙️</button>
+
+    <div id="scoreboard" class="glass-panel">
+        <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 5px;">🏆 KEDUDUKAN (ZON <span id="zone-display">1</span>)</div>
+        <div id="score-list"></div>
+    </div>
+
+    <div id="toast">Notifikasi</div>
+
+    <div id="game-container">
+        <div id="world">
+            <div id="map-layer"></div>
+            <div id="entity-layer">
+                <div id="player"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="virtual-dpad">
+        <div class="dpad-cluster">
+            <div class="dpad-btn" id="btn-left">⬅️</div>
+            <div class="dpad-btn" id="btn-right">➡️</div>
+        </div>
+        <div class="dpad-cluster">
+            <div class="dpad-btn" id="btn-up" style="flex-direction: column;">
+                <span>🔼</span><span style="font-size:0.7rem">LOMPAT</span>
+            </div>
+            <div class="dpad-btn" id="btn-down">🔽</div>
+        </div>
+    </div>
+
+    <!-- MODAL KUIZ -->
+    <div id="overlay-quiz" class="overlay">
+        <div class="glass-panel modal" id="quiz-modal">
+            <div style="font-size: 3.5rem; margin-bottom: -10px; text-shadow: 0 0 15px var(--neon-primary);">❓</div>
+            <h2 id="q-text">Soalan Bahasa Arab</h2>
+            <div id="q-options"></div>
+        </div>
+    </div>
+
+    <!-- MODAL EDITOR & TETAPAN -->
+    <div id="overlay-editor" class="overlay">
+        <div class="glass-panel modal" id="editor-modal">
+            <button class="close-editor" onclick="GameApp.Editor.close()">✖</button>
+            <h2>⚙️ EDITOR SOALAN & TETAPAN</h2>
+            
+            <div style="background: rgba(0,0,0,0.4); padding: 20px; border-radius: 12px; border: 1px dashed var(--neon-primary);">
+                <h3 style="color:var(--text-main); margin-bottom: 15px;">➕ Tambah Soalan Baharu</h3>
+                <div class="form-group">
+                    <label>Teks Soalan (Bahasa Arab):</label>
+                    <input type="text" id="edit-q-text" class="form-control" placeholder="Contoh: الإِسْمُ : ( الْمَاءُ / يَفْتَحُ )" dir="rtl">
+                </div>
+                <div style="display: flex; gap: 15px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Pilihan 1:</label>
+                        <input type="text" id="edit-opt-1" class="form-control" placeholder="Pilihan A" dir="rtl">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Pilihan 2:</label>
+                        <input type="text" id="edit-opt-2" class="form-control" placeholder="Pilihan B" dir="rtl">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Indeks Jawapan Betul:</label>
+                    <select id="edit-ans-idx" class="form-control">
+                        <option value="0">Pilihan 1 ialah Jawapan Tepat</option>
+                        <option value="1">Pilihan 2 ialah Jawapan Tepat</option>
+                    </select>
+                </div>
+                <button class="btn-action" onclick="GameApp.Editor.saveQuestion()">💾 SIMPAN SOALAN</button>
+            </div>
+
+            <h3 style="color:var(--text-main); margin-top: 30px;">📋 Bank Soalan Semasa</h3>
+            <div class="table-container">
+                <table id="editor-table">
+                    <thead><tr><th style="width: 50px;">No.</th><th>Soalan</th><th style="width: 60px;">Tindakan</th></tr></thead>
+                    <tbody id="editor-tbody"></tbody>
+                </table>
+            </div>
+            
+            <button class="btn-action btn-danger" style="margin-top:20px;" onclick="GameApp.Editor.resetToDefault()">🔄 KEMBALIKAN SOALAN ASAL (RESET)</button>
+            <a href="index.html" class="btn-action btn-home">🏠 KEMBALI KE HALAMAN UTAMA</a>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT GAME ENGINE -->
+    <script>
+        const GameApp = (function() {
+            
+            // 1. DATA (Soalan & Skor)
+            const Data = {
+                teams: parseInt(localStorage.getItem('kafaMultiplayerTeams')) || 4,
+                scores: [], currentTeamIndex: 0, questions: [],
+                
+                // 30 Soalan Lengkap Berdasarkan Modul Silibus[cite: 1]
+                defaultQuestions: [
+                    { q: "الإِسْمُ : ( الْمَاءُ / يَفْتَحُ )", options: ["الْمَاءُ", "يَفْتَحُ"], answer: 0 }, //[cite: 1]
+                    { q: "الفِعْلُ : ( شَوْكَةٌ / يُعْطِي )", options: ["شَوْكَةٌ", "يُعْطِي"], answer: 1 }, //[cite: 1]
+                    { q: "الفِعْلُ : ( يَنَامُ / قَلَمٌ )", options: ["يَنَامُ", "قَلَمٌ"], answer: 0 }, //[cite: 1]
+                    { q: "الإِسْمُ : ( طَالِبَةٌ / أَكَلَ )", options: ["طَالِبَةٌ", "أَكَلَ"], answer: 0 }, //[cite: 1]
+                    { q: "الفِعْلُ : ( صَحْنُ / مَشَى )", options: ["صَحْنُ", "مَشَى"], answer: 1 }, //[cite: 1]
+                    { q: "أَقْرَأُ (Tentukan)", options: ["الإِسْمُ", "الفِعْلُ"], answer: 1 }, //[cite: 1]
+                    { q: "قَاعَةٌ (Tentukan)", options: ["الإِسْمُ", "الفِعْلُ"], answer: 0 }, //[cite: 1]
+                    { q: "فَتَحَتْ (Tentukan)", options: ["الإِسْمُ", "الفِعْلُ"], answer: 1 }, //[cite: 1]
+                    { q: "الشَّجَرَةُ (Tentukan)", options: ["الإِسْمُ", "الفِعْلُ"], answer: 0 }, //[cite: 1]
+                    { q: "تَقُوْمُ (Tentukan)", options: ["الإِسْمُ", "الفِعْلُ"], answer: 1 }, //[cite: 1]
+                    
+                    { q: "القَمِيصُ (Kelaskan)", options: ["الأَسْمَاءُ", "الأَفْعَالُ"], answer: 0 }, //[cite: 1]
+                    { q: "عُمَرُ (Kelaskan)", options: ["الأَسْمَاءُ", "الأَفْعَالُ"], answer: 0 }, //[cite: 1]
+                    { q: "ذَلِكَ (Kelaskan)", options: ["الأَسْمَاءُ", "الأَفْعَالُ"], answer: 0 }, //[cite: 1]
+                    { q: "وَضَعَ (Kelaskan)", options: ["الأَسْمَاءُ", "الأَفْعَالُ"], answer: 1 }, //[cite: 1]
+                    { q: "أَسْمَعُ (Kelaskan)", options: ["الأَسْمَاءُ", "الأَفْعَالُ"], answer: 1 }, //[cite: 1]
+                    { q: "يَأْكُلْنَ الْأَرْزْفِي الْمَطْعَمِ . ( هُنَّ / هُمْ )", options: ["هُنَّ", "هُمْ"], answer: 0 }, //[cite: 1]
+                    { q: "تَذْهَبُونَ إِلَى الْمَسْجِدِ . ( أَنْتُنَّ / أَنْتُمْ )", options: ["أَنْتُنَّ", "أَنْتُمْ"], answer: 1 }, //[cite: 1]
+                    { q: "مُجْتَهِد في الدِّرَاسَةِ . ( هُوَ / هِيَ )", options: ["هُوَ", "هِيَ"], answer: 0 }, //[cite: 1]
+                    { q: "نَاجِحَتَانِ فِي الإِمْتِحَانِ . ( هُمْ / هُمَا )", options: ["هُمْ", "هُمَا"], answer: 1 }, //[cite: 1]
+                    { q: "نَاجِحَةٌ فِي الإِمْتِحَان . ( هِيَ / هُنَّ )", options: ["هِيَ", "هُنَّ"], answer: 0 }, //[cite: 1]
+                    
+                    { q: "تَذْهَبْنَ إِلَى الْمَكْتَبَةِ . ( هُنَّ / أَنْتُنَّ )", options: ["هُنَّ", "أَنْتُنَّ"], answer: 1 }, //[cite: 1]
+                    { q: "يَشْرَبْنَ عَصِيرَ الْمَنْجَا . ( هُمْ / هُنَّ )", options: ["هُمْ", "هُنَّ"], answer: 1 }, //[cite: 1]
+                    { q: "طَالِبَةٌ ذَكِيَّةٌ . ( أَنْتَ / أَنْتِ )", options: ["أَنْتَ", "أَنْتِ"], answer: 1 }, //[cite: 1]
+                    { q: "يَنْظُرُونَ الْتِلْفِزْيُونُ . ( هُمْ / هُنَّ )", options: ["هُمْ", "هُنَّ"], answer: 0 }, //[cite: 1]
+                    { q: "مُجْتَهِدَاتٌ فِي دُرُوسِكُنَّ . ( أَنَا / أَنْتُنَّ )", options: ["أَنَا", "أَنْتُنَّ"], answer: 1 }, //[cite: 1]
+                    { q: "السَّاعَةُ الثَّالِثَةُ تَمَامًا ( ٣:٠٠ / ٣:٤٥ )", options: ["٣:٠٠", "٣:٤٥"], answer: 0 }, //[cite: 1]
+                    { q: "السَّاعَةُ الخَامِسَةُ وَالنِّصْفُ ( ٥:١٥ / ٥:٣٠ )", options: ["٥:١٥", "٥:٣٠"], answer: 1 }, //[cite: 1]
+                    { q: "السَّاعَةُ العَاشِرَةُ إِلَّا الثَّلُثُ ( ٩:٤٠ / ٩:٢٠ )", options: ["٩:٤٠", "٩:٢٠"], answer: 0 }, //[cite: 1]
+                    { q: "سِتُّمِائَةٍ وَثَمَانِيَةُ وَتِسْعُوْنَ ( ٦٨٩ / ٦٩٨ )", options: ["٦٨٩", "٦٩٨"], answer: 1 }, //[cite: 1]
+                    { q: "خَمْسَةٌ وَعِشْرُونَ ( ٢٥ / ٥٢ )", options: ["٢٥", "٥٢"], answer: 0 } //[cite: 1]
+                ],
+                init: function() {
+                    for(let i=0; i<this.teams; i++) this.scores.push(0);
+                    let saved = localStorage.getItem('kafaQuestionsModul1');
+                    if (saved) { try { this.questions = JSON.parse(saved); } catch(e) { this.questions = [...this.defaultQuestions]; } } 
+                    else { this.questions = [...this.defaultQuestions]; }
+                },
+                saveQuestions: function() { localStorage.setItem('kafaQuestionsModul1', JSON.stringify(this.questions)); }
+            };
+
+            // 2. PEMETAAN PROSEDURAL (PROCEDURAL MAP GENERATION - 30 Kotak Tepat)
+            const Map = {
+                tileSize: 50, cols: 0, rows: 18, grid: [], blocks: [],
+                build: function() {
+                    const layer = document.getElementById('map-layer'); layer.innerHTML = '';
+                    // Corak 36 Kolum mengandungi tepat 6 kotak soalan (Tanda 4)
+                    const chunk = [
+                        "....................................",
+                        "....................................",
+                        "....................................",
+                        ".............4......................",
+                        "........11111111111.................",
+                        "......4......3......4...............",
+                        "....111111...3...111111.............",
+                        "....1........3........1.............",
+                        "....1........3........1.............",
+                        "..11111111111311111111111...........",
+                        ".............3......................",
+                        ".............3......................",
+                        "........4....3....4.................",
+                        ".....222222..3..222222..............",
+                        ".....2....2..3..2....2..............",
+                        ".....2..4.2..3..2....2..............",
+                        "1111111111111111111111111111111.....",
+                        "1111111111111111111111111111111....."
+                    ];
+                    
+                    // Ulang 5 kali untuk 30 kotak (5 chunks x 6 kotak)
+                    for (let r = 0; r < 18; r++) {
+                        let rowStr = "";
+                        for (let i = 0; i < 5; i++) rowStr += chunk[r];
+                        rowStr += "1"; // Penutup Dinding Akhir
+                        
+                        let rowArr = [];
+                        for (let char of rowStr) {
+                            if (char === '.') rowArr.push(0);
+                            else rowArr.push(parseInt(char));
+                        }
+                        this.grid.push(rowArr);
+                    }
+                    this.cols = this.grid[0].length;
+
+                    // Bina DOM & Blocks Fizik
+                    for (let r = 0; r < this.rows; r++) {
+                        for (let c = 0; c < this.cols; c++) {
+                            let type = this.grid[r][c];
+                            if (type > 0) {
+                                let div = document.createElement('div'); div.className = 'tile';
+                                if (type === 1) div.classList.add('ground');
+                                else if (type === 2) div.classList.add('wall');
+                                else if (type === 3) div.classList.add('ladder');
+                                else if (type === 4) { div.classList.add('q-box'); div.innerText = '❓'; div.id = `qbox-${c}-${r}`; }
+                                
+                                let px = c * this.tileSize; let py = r * this.tileSize;
+                                div.style.left = px + 'px'; div.style.top = py + 'px'; layer.appendChild(div);
+                                this.blocks.push({ col: c, row: r, type: type, x: px, y: py, w: this.tileSize, h: this.tileSize, used: false, el: div });
+                            }
+                        }
+                    }
+                    document.getElementById('world').style.width = (this.cols * this.tileSize) + 'px';
+                    document.getElementById('world').style.height = (this.rows * this.tileSize) + 'px';
+                }
+            };
+
+            // 3. ENJIN FIZIK
+            const Physics = {
+                player: { el: document.getElementById('player'), x: 80, y: 700, w: 36, h: 36, vx: 0, vy: 0, speed: 7, jumpPower: -15, gravity: 0.75, friction: 0.8, onGround: false, onLadder: false },
+                keys: { left: false, right: false, up: false, down: false }, isPaused: false, currentQBox: null, currentTheme: 1,
+
+                initInput: function() {
+                    const press = (key) => this.keys[key] = true; const release = (key) => this.keys[key] = false;
+                    window.addEventListener('keydown', (e) => {
+                        if (['ArrowLeft', 'a'].includes(e.key)) press('left'); if (['ArrowRight', 'd'].includes(e.key)) press('right');
+                        if (['ArrowUp', 'w', ' '].includes(e.key)) press('up'); if (['ArrowDown', 's'].includes(e.key)) press('down');
+                    });
+                    window.addEventListener('keyup', (e) => {
+                        if (['ArrowLeft', 'a'].includes(e.key)) release('left'); if (['ArrowRight', 'd'].includes(e.key)) release('right');
+                        if (['ArrowUp', 'w', ' '].includes(e.key)) release('up'); if (['ArrowDown', 's'].includes(e.key)) release('down');
+                    });
+                    const bindDpad = (id, key) => {
+                        const btn = document.getElementById(id);
+                        const downEvent = (e) => { e.preventDefault(); press(key); btn.classList.add('pressed'); };
+                        const upEvent = (e) => { e.preventDefault(); release(key); btn.classList.remove('pressed'); };
+                        btn.addEventListener('mousedown', downEvent); btn.addEventListener('touchstart', downEvent);
+                        btn.addEventListener('mouseup', upEvent); btn.addEventListener('touchend', upEvent); btn.addEventListener('mouseleave', upEvent);
+                    };
+                    bindDpad('btn-left', 'left'); bindDpad('btn-right', 'right'); bindDpad('btn-up', 'up'); bindDpad('btn-down', 'down');
+                },
+
+                update: function() {
+                    if (this.isPaused) return; let p = this.player;
+
+                    // Logik Tangga
+                    p.onLadder = false; let pCX = p.x + p.w / 2; let pCY = p.y + p.h / 2;
+                    for (let b of Map.blocks) {
+                        if (b.type === 3 && pCX > b.x && pCX < b.x + b.w && pCY > b.y && pCY < b.y + b.h) { p.onLadder = true; break; }
+                    }
+
+                    // Pergerakan X & Y
+                    if (this.keys.left) p.vx = -p.speed; else if (this.keys.right) p.vx = p.speed; else p.vx *= p.friction;
+                    if (Math.abs(p.vx) < 0.1) p.vx = 0;
+
+                    if (p.onLadder) {
+                        p.vy = 0; if (this.keys.up) p.vy = -p.speed; if (this.keys.down) p.vy = p.speed;
+                    } else {
+                        p.vy += p.gravity; if (p.vy > 18) p.vy = 18;
+                        if (this.keys.up && p.onGround) { p.vy = p.jumpPower; p.onGround = false; }
+                    }
+
+                    p.x += p.vx; this.handleCollision('x');
+                    p.y += p.vy; p.onGround = false; this.handleCollision('y');
+
+                    // Sempadan Peta & Jatuh
+                    if (p.x < 0) { p.x = 0; p.vx = 0; }
+                    if (p.x + p.w > Map.cols * Map.tileSize) { p.x = Map.cols * Map.tileSize - p.w; p.vx = 0; }
+                    if (p.y > Map.rows * Map.tileSize) { p.x = 80; p.y = 700; p.vy = 0; UI.showToast("💥 Terjatuh! Mulakan semula.", 2000); }
+
+                    // Render Grafik & Pusingan
+                    p.el.style.transform = `rotate(${p.vx * 4}deg)`;
+                    p.el.style.left = p.x + 'px'; p.el.style.top = p.y + 'px';
+                    
+                    this.updateThemeAndCamera();
+                },
+
+                handleCollision: function(axis) {
+                    let p = this.player;
+                    for (let b of Map.blocks) {
+                        if (b.type === 3 || (b.type === 4 && b.used)) continue;
+
+                        if (p.x < b.x + b.w && p.x + p.w > b.x && p.y < b.y + b.h && p.y + p.h > b.y) {
+                            
+                            // BUG FIX KOTAK SOALAN: Buka soalan jika pemain melanggar dari MANA-MANA arah.
+                            if (b.type === 4 && !b.used) {
+                                this.triggerQuiz(b);
+                                // Tolak sikit pemain supaya tak sangkut dalam kotak berulang kali
+                                if (axis === 'y') p.y = (p.vy > 0) ? b.y - p.h : b.y + b.h;
+                                if (axis === 'x') p.x = (p.vx > 0) ? b.x - p.w : b.x + b.w;
+                                p.vx = 0; p.vy = 0; return;
+                            }
+
+                            // Peleraian Halangan Biasa (Tanah & Dinding)
+                            if (axis === 'x') {
+                                if (p.vx > 0) p.x = b.x - p.w; else if (p.vx < 0) p.x = b.x + b.w;
+                                p.vx = 0;
+                            } else if (axis === 'y') {
+                                if (p.vy > 0) { p.y = b.y - p.h; p.vy = 0; p.onGround = true; } 
+                                else if (p.vy < 0) { p.y = b.y + b.h; p.vy = 0; }
+                            }
+                        }
+                    }
+                },
+
+                updateThemeAndCamera: function() {
+                    let p = this.player;
+                    
+                    // Transisi TEMA berdasarkan Koordinat X
+                    let newTheme = 1;
+                    if (p.x >= 3600 && p.x < 7200) newTheme = 2; // Zon Toxic
+                    else if (p.x >= 7200) newTheme = 3; // Zon Inferno
+
+                    if (this.currentTheme !== newTheme) {
+                        this.currentTheme = newTheme;
+                        document.body.className = `theme-${newTheme}`;
+                        document.getElementById('zone-display').innerText = newTheme;
+                        UI.showToast(`✨ Memasuki ZON ${newTheme}!`, 2500);
+                    }
+
+                    // Kamera
+                    let world = document.getElementById('world');
+                    let camX = Math.max(0, Math.min((p.x + p.w / 2) - (window.innerWidth / 2), (Map.cols * Map.tileSize) - window.innerWidth));
+                    let camY = Math.max(0, Math.min((p.y + p.h / 2) - (window.innerHeight / 2), (Map.rows * Map.tileSize) - window.innerHeight));
+                    world.style.transform = `translate(${-camX}px, ${-camY}px)`;
+                },
+
+                triggerQuiz: function(block) {
+                    if (Data.questions.length === 0) { UI.showToast("🏁 Tahniah! Semua soalan dijawab.", 3000); block.used = true; return; }
+                    this.isPaused = true; this.keys = { left:false, right:false, up:false, down:false };
+                    this.currentQBox = block; QuizSystem.open();
+                }
+            };
+
+            // 4. SISTEM KUIZ & EDITOR
+            const QuizSystem = {
+                open: function() {
+                    document.getElementById('overlay-quiz').style.display = 'block';
+                    let qIdx = Math.floor(Math.random() * Data.questions.length);
+                    let qData = Data.questions[qIdx]; Physics.currentQBox.qIndex = qIdx;
+                    
+                    document.getElementById('q-text').innerText = qData.q;
+                    let optsDiv = document.getElementById('q-options'); optsDiv.innerHTML = '';
+                    qData.options.forEach((opt, idx) => {
+                        let btn = document.createElement('button'); btn.className = 'ans-btn';
+                        btn.innerText = opt; btn.onclick = () => this.check(idx, qData.answer);
+                        optsDiv.appendChild(btn);
+                    });
+                },
+                check: function(sIdx, cIdx) {
+                    let team = Data.currentTeamIndex; let box = Physics.currentQBox;
+                    if (sIdx === cIdx) {
+                        Data.scores[team] += 10; box.used = true; box.el.classList.add('used'); box.el.innerText = '✔';
+                        Data.questions.splice(box.qIndex, 1);
+                        UI.showToast(`✨ Tepat! Kumpulan ${team + 1} mendapat +10 Mata!`, 2000);
+                    } else { UI.showToast(`❌ Kurang Tepat! Giliran terbatal.`, 2000); }
+
+                    document.getElementById('overlay-quiz').style.display = 'none'; UI.updateScoreboard();
+                    setTimeout(() => {
+                        Data.currentTeamIndex = (Data.currentTeamIndex + 1) % Data.teams;
+                        UI.updateScoreboard(); UI.showToast(`Sedia: Kumpulan ${Data.currentTeamIndex + 1}`, 1500);
+                        Physics.isPaused = false;
+                    }, 2000);
+                }
+            };
+
+            const Editor = {
+                open: function() { Physics.isPaused = true; document.getElementById('overlay-editor').style.display = 'block'; this.render(); },
+                close: function() { document.getElementById('overlay-editor').style.display = 'none'; Physics.isPaused = false; },
+                render: function() {
+                    let tbody = document.getElementById('editor-tbody'); tbody.innerHTML = '';
+                    Data.questions.forEach((q, idx) => {
+                        let tr = document.createElement('tr');
+                        tr.innerHTML = `<td>${idx + 1}</td><td class="td-arab">${q.q} <br><span style="font-size:0.8rem; color:#aaa; direction:ltr;">A: ${q.options[0]} | B: ${q.options[1]} (Ans: ${q.answer})</span></td>
+                                        <td><button class="del-btn" onclick="GameApp.Editor.del(${idx})">🗑️</button></td>`;
+                        tbody.appendChild(tr);
+                    });
+                },
+                saveQuestion: function() {
+                    let text = document.getElementById('edit-q-text').value.trim(); let o1 = document.getElementById('edit-opt-1').value.trim();
+                    let o2 = document.getElementById('edit-opt-2').value.trim(); let ans = parseInt(document.getElementById('edit-ans-idx').value);
+                    if (!text || !o1 || !o2) return alert("Sila lengkapkan maklumat!");
+                    Data.questions.push({ q: text, options: [o1, o2], answer: ans });
+                    Data.saveQuestions(); this.render(); alert("Berjaya ditambah!");
+                },
+                del: function(idx) { if (confirm("Padam soalan ini?")) { Data.questions.splice(idx, 1); Data.saveQuestions(); this.render(); } },
+                resetToDefault: function() { if (confirm("Buang soalan tersuai dan kembali ke modul asal?")) { Data.questions = [...Data.defaultQuestions]; Data.saveQuestions(); this.render(); } }
+            };
+
+            // 5. UI UTILITIES
+            const UI = {
+                updateScoreboard: function() {
+                    let list = document.getElementById('score-list'); list.innerHTML = '';
+                    for (let i = 0; i < Data.teams; i++) {
+                        let div = document.createElement('div');
+                        if (i === Data.currentTeamIndex) { div.className = 'team-active'; div.innerText = `▶ Kump ${i + 1}: ${Data.scores[i]}`; } 
+                        else { div.innerText = `Kump ${i + 1}: ${Data.scores[i]}`; }
+                        list.appendChild(div);
+                    }
+                },
+                showToast: function(msg, dur) {
+                    let t = document.getElementById('toast'); t.innerText = msg; t.style.opacity = '1';
+                    if(this.timer) clearTimeout(this.timer); this.timer = setTimeout(() => t.style.opacity = '0', dur);
+                }
+            };
+
+            function gameLoop() { Physics.update(); requestAnimationFrame(gameLoop); }
+
+            return {
+                init: function() { Data.init(); Map.build(); Physics.initInput(); UI.updateScoreboard(); UI.showToast("MULA: Lompat & Cari Kotak!", 3000); requestAnimationFrame(gameLoop); },
+                Editor: Editor
+            };
+        })();
+
+        window.onload = GameApp.init;
+    </script>
+</body>
+</html>

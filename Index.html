@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ustazah Hajar Arked - Dashboard Utama</title>
+    <style>
+        /* ==========================================================================
+           1. TEMA & LATAR BELAKANG NEON BERGERAK
+           ========================================================================== */
+        :root {
+            --bg-dark: #070712;
+            --bg-grid: rgba(0, 243, 255, 0.05);
+            --theme-primary: #00f3ff;
+            --theme-secondary: #ff00ea;
+            --theme-tertiary: #b538ff;
+            
+            --glass-bg: rgba(15, 20, 30, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            
+            --text-main: #ffffff;
+            --font-ui: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* Penukar Tema Dynamic Background (Untuk Modal & Sidebar) */
+        body.theme-magenta { --theme-primary: #ff00ea; --theme-secondary: #00f3ff; --bg-grid: rgba(255, 0, 234, 0.05); }
+        body.theme-lime { --theme-primary: #39ff14; --theme-secondary: #00f3ff; --bg-grid: rgba(57, 255, 20, 0.05); }
+        body.theme-gold { --theme-primary: #ffd700; --theme-secondary: #ff00ea; --bg-grid: rgba(255, 215, 0, 0.05); }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body, html {
+            width: 100%; min-height: 100vh; overflow-x: hidden;
+            background-color: var(--bg-dark); font-family: var(--font-ui);
+            color: var(--text-main);
+        }
+
+        /* Grid Bergerak */
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; width: 200vw; height: 200vh;
+            background-image: 
+                linear-gradient(var(--bg-grid) 2px, transparent 2px),
+                linear-gradient(90deg, var(--bg-grid) 2px, transparent 2px);
+            background-size: 70px 70px; z-index: -3;
+            animation: moveGrid 30s linear infinite; transition: 0.5s;
+        }
+        @keyframes moveGrid { 0% { transform: translate(0, 0); } 100% { transform: translate(-70px, -70px); } }
+
+        /* Orb Terapung */
+        .neon-orb { position: fixed; border-radius: 50%; filter: blur(140px); z-index: -2; opacity: 0.3; animation: floatOrb 20s infinite alternate ease-in-out; }
+        .orb-1 { width: 50vw; height: 50vw; top: -10%; left: -10%; background: var(--theme-tertiary); }
+        .orb-2 { width: 45vw; height: 45vw; bottom: -10%; right: -10%; background: var(--theme-primary); animation-delay: -5s; }
+        .orb-3 { width: 40vw; height: 40vw; top: 30%; left: 30%; background: var(--theme-secondary); animation-delay: -10s; opacity: 0.2; }
+        
+        @keyframes floatOrb {
+            0% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(60px, 90px) scale(1.1); }
+            100% { transform: translate(-60px, -50px) scale(0.9); }
+        }
+
+        /* ==========================================================================
+           2. TOP BAR & HAMBURGER MENU (BERDASARKAN SCREENSHOT)
+           ========================================================================== */
+        .top-bar {
+            width: 100%; height: 60px; background: rgba(10, 15, 30, 0.9); backdrop-filter: blur(10px);
+            display: flex; align-items: center; padding: 0 20px; box-shadow: 0 2px 15px rgba(0,0,0,0.5);
+            position: fixed; top: 0; left: 0; z-index: 900; border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .hamburger-btn {
+            font-size: 1.8rem; color: #fff; cursor: pointer; margin-right: 20px;
+            transition: 0.3s; padding: 5px; line-height: 1;
+        }
+        .hamburger-btn:hover { color: var(--theme-primary); text-shadow: 0 0 10px var(--theme-primary); }
+        .brand-title { font-size: 1.5rem; font-weight: 300; letter-spacing: 1px; color: #e0e0e0; }
+        
+        .active-class-badge {
+            margin-left: auto; background: rgba(0,0,0,0.6); padding: 5px 15px;
+            border-radius: 20px; border: 1px solid var(--theme-primary); color: var(--theme-primary);
+            font-size: 0.9rem; font-weight: bold; box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        /* Sidebar Kiri */
+        .sidebar {
+            position: fixed; top: 60px; left: -320px; width: 300px; height: calc(100vh - 60px);
+            background: var(--glass-bg); backdrop-filter: blur(20px);
+            border-right: 1px solid var(--glass-border); box-shadow: 5px 0 30px rgba(0,0,0,0.8);
+            z-index: 999; transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 30px 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto;
+        }
+        .sidebar.open { left: 0; }
+        .sidebar h2 { color: var(--theme-primary); font-size: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        .sidebar-item {
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
+            padding: 12px 15px; border-radius: 8px; color: white; text-decoration: none;
+            font-size: 1rem; transition: 0.2s; cursor: pointer; display: flex; align-items: center; gap: 10px;
+        }
+        .sidebar-item:hover { background: rgba(255,255,255,0.1); border-color: var(--theme-primary); color: var(--theme-primary); transform: translateX(5px); }
+
+        /* ==========================================================================
+           3. WINDOWS BLOCKTILES GRID (TEPAT MENGIKUT SCREENSHOT)
+           ========================================================================== */
+        .dashboard-container {
+            padding: 100px 20px 50px 20px; max-width: 1100px; margin: 0 auto;
+            display: flex; justify-content: center;
+        }
+
+        .metro-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-auto-rows: 160px; /* Ketinggian asas blok */
+            gap: 12px; width: 100%;
+        }
+
+        .tile {
+            position: relative; display: block; text-decoration: none; color: white;
+            overflow: hidden; cursor: pointer; transition: transform 0.15s, filter 0.2s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4); border-radius: 4px; /* Sudut tajam/sedikit bulat ala Windows */
+        }
+        .tile:hover { transform: scale(1.02); filter: brightness(1.1); box-shadow: 0 8px 25px rgba(0,0,0,0.6); z-index: 10; }
+        .tile:active { transform: scale(0.98); }
+
+        /* Emojis dalam tile (Tengah) */
+        .tile-icon {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 4.5rem; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.4));
+        }
+
+        /* Teks di Bawah Kiri */
+        .tile-title {
+            position: absolute; bottom: 12px; left: 15px;
+            font-size: 1.1rem; font-weight: 600; letter-spacing: 0.5px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+        }
+
+        /* PEMETAAN GRID & WARNA (Sama macam Screenshot) */
+        .tile-1 { grid-column: span 2; grid-row: span 2; background-color: #0078D7; } /* Blue */
+        .tile-2 { grid-column: span 2; grid-row: span 1; background-color: #C21460; } /* Magenta/Pink */
+        .tile-3 { grid-column: span 1; grid-row: span 1; background-color: #D24726; } /* Orange */
+        .tile-4 { grid-column: span 1; grid-row: span 1; background-color: #107C10; } /* Green */
+        .tile-5 { grid-column: span 2; grid-row: span 1; background-color: #008272; } /* Teal */
+        .tile-6 { grid-column: span 2; grid-row: span 2; background-color: #D2980B; } /* Gold/Yellow */
+        .tile-7 { grid-column: span 1; grid-row: span 1; background-color: #D13438; } /* Red */
+        .tile-8 { grid-column: span 1; grid-row: span 1; background-color: #2D5C98; } /* Dark Blue */
+        .tile-9 { grid-column: span 2; grid-row: span 1; background-color: #68217A; } /* Purple */
+        .tile-10{ grid-column: span 2; grid-row: span 1; background-color: #7A9B3E; } /* Olive/Lime */
+
+        /* Responsive Grid untuk skrin kecil */
+        @media (max-width: 800px) {
+            .metro-grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 130px; }
+            .tile-1, .tile-6 { grid-column: span 2; grid-row: span 2; }
+            .tile-2, .tile-5, .tile-9, .tile-10 { grid-column: span 2; grid-row: span 1; }
+            .tile-3, .tile-4, .tile-7, .tile-8 { grid-column: span 1; grid-row: span 1; }
+            .tile-icon { font-size: 3.5rem; }
+            .active-class-badge { display: none; }
+        }
+
+        /* ==========================================================================
+           4. MODAL / OVERLAY & KOMPONEN UI DALAMAN
+           ========================================================================== */
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); z-index: 2000; overflow-y: auto; padding: 20px; }
+        .modal {
+            position: relative; width: 100%; max-width: 900px; margin: 40px auto; padding: 35px;
+            background: rgba(12, 18, 30, 0.95); backdrop-filter: blur(20px); border-radius: 12px;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.9); border: 1px solid var(--theme-primary);
+            animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes modalPop { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        
+        .modal h2 { text-align: center; font-size: 1.8rem; margin-bottom: 25px; border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 15px; color: var(--theme-primary); text-transform: uppercase; }
+        .close-btn { position: absolute; top: 15px; right: 20px; background: none; border: none; color: #fff; font-size: 2rem; cursor: pointer; transition: 0.2s; }
+        .close-btn:hover { color: #ff2a2a; transform: scale(1.2); }
+
+        .form-control { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.6); color: white; font-size: 1rem; outline: none; transition: 0.3s; }
+        .form-control:focus { border-color: var(--theme-primary); box-shadow: 0 0 10px var(--theme-primary); }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 8px; color: #ccc; font-size: 0.9rem; }
+
+        .btn { padding: 12px 20px; font-size: 1rem; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; border: none; text-align: center; }
+        .btn-primary { background: rgba(0, 243, 255, 0.2); border: 1px solid var(--theme-primary); color: var(--theme-primary); }
+        .btn-primary:hover { background: var(--theme-primary); color: #000; box-shadow: 0 0 15px var(--theme-primary); }
+        .btn-danger { background: rgba(255, 42, 42, 0.2); border: 1px solid #ff2a2a; color: #ff2a2a; }
+        .btn-danger:hover { background: #ff2a2a; color: #fff; box-shadow: 0 0 15px #ff2a2a; }
+        .btn-warning { background: rgba(255, 234, 0, 0.2); border: 1px solid #ffea00; color: #ffea00; }
+        
+        .d-flex { display: flex; gap: 15px; flex-wrap: wrap; }
+        .flex-1 { flex: 1; min-width: 250px; }
+
+        /* Jadual Data (Editor & Papan Markah) */
+        .table-wrap { width: 100%; overflow-x: auto; background: rgba(0,0,0,0.4); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); margin-top: 20px; max-height: 400px; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 12px 15px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        th { background: rgba(0,0,0,0.8); color: var(--theme-primary); font-size: 1rem; position: sticky; top: 0; z-index: 10; }
+        tr:hover { background: rgba(255,255,255,0.05); }
+        .td-arab { direction: rtl; font-size: 1.3rem; font-weight: bold; font-family: var(--font-arab); color: #fff; }
+        
+        .editor-workspace { display: flex; flex-direction: column; gap: 20px; }
+        .editor-controls { display: flex; gap: 15px; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); flex-wrap: wrap; align-items: flex-end; }
+        .del-btn { background: none; border: none; color: #ff2a2a; font-size: 1.2rem; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <!-- Latar Belakang & Orb Animasi -->
+    <div class="neon-orb orb-1"></div>
+    <div class="neon-orb orb-2"></div>
+    <div class="neon-orb orb-3"></div>
+
+    <!-- TOP NAVIGATION BAR -->
+    <div class="top-bar">
+        <div class="hamburger-btn" onclick="UI.toggleSidebar()">☰</div>
+        <div class="brand-title">Ustazah Hajar Arked</div>
+        <div class="active-class-badge" id="display-class">Kelas Aktif: -</div>
+    </div>
+
+    <!-- SIDEBAR KAWALAN PUSAT -->
+    <div id="sidebar" class="sidebar">
+        <h2>🛠️ Pusat Kawalan</h2>
+        <a class="sidebar-item" onclick="UI.openModal('modal-class'); UI.toggleSidebar();">🏫 Profil Kelas & Subjek</a>
+        <a class="sidebar-item" onclick="UI.openModal('modal-master-editor'); UI.toggleSidebar();">📝 Master Editor Soalan</a>
+        <a class="sidebar-item" onclick="UI.openModal('modal-leaderboard'); UI.toggleSidebar();">🏆 Papan Markah Global</a>
+        
+        <h2 style="margin-top: 20px;">⚙️ Sistem & Data</h2>
+        <a class="sidebar-item" onclick="UI.openModal('modal-settings'); UI.toggleSidebar();">🎨 Tema & Audio Test</a>
+        <a class="sidebar-item" onclick="UI.openModal('modal-backup'); UI.toggleSidebar();">💾 Backup & Restore</a>
+        <a class="sidebar-item" onclick="UI.openModal('modal-info'); UI.toggleSidebar();">ℹ️ Maklumat Sistem</a>
+        
+        <div style="flex-grow: 1;"></div>
+        <a class="sidebar-item" style="color:#ff2a2a; border-color:#ff2a2a;" onclick="App.resetSystemConfirm()">⚠️ Reset Sistem</a>
+    </div>
+
+    <!-- CONTAINER UTAMA: WINDOWS METRO GRID -->
+    <div class="dashboard-container">
+        <div class="metro-grid">
+            <!-- Modul 1 (2x2) -->
+            <a href="modul1.html" class="tile tile-1">
+                <div class="tile-icon">🔍</div>
+                <div class="tile-title">1. Cari Perkataan</div>
+            </a>
+            <!-- Modul 2 (2x1) -->
+            <a href="modul2.html" class="tile tile-2">
+                <div class="tile-icon">🔨</div>
+                <div class="tile-title">2. Pukul Kalimah</div>
+            </a>
+            <!-- Modul 3 (1x1) -->
+            <a href="modul3.html" class="tile tile-3">
+                <div class="tile-icon">🏎️</div>
+                <div class="tile-title">3. Lari Pecut</div>
+            </a>
+            <!-- Modul 4 (1x1) -->
+            <a href="modul4.html" class="tile tile-4">
+                <div class="tile-icon">🪢</div>
+                <div class="tile-title">4. Tarik Tali</div>
+            </a>
+            <!-- Modul 5 (2x1) -->
+            <a href="modul5.html" class="tile tile-5">
+                <div class="tile-icon">💎</div>
+                <div class="tile-title">5. Cari Harta Karun</div>
+            </a>
+            <!-- Modul 6 (2x2) -->
+            <a href="modul6.html" class="tile tile-6">
+                <div class="tile-icon">🚨</div>
+                <div class="tile-title">6. Golden Buzzer</div>
+            </a>
+            <!-- Modul 7 (1x1) -->
+            <a href="modul7.html" class="tile tile-7">
+                <div class="tile-icon">🎈</div>
+                <div class="tile-title">7. Tembak Belon</div>
+            </a>
+            <!-- Modul 8 (1x1) -->
+            <a href="modul8.html" class="tile tile-8">
+                <div class="tile-icon">🎣</div>
+                <div class="tile-title">8. Tangkap Ikan</div>
+            </a>
+            <!-- Modul 9 (2x1) -->
+            <a href="modul9.html" class="tile tile-9">
+                <div class="tile-icon">🚀</div>
+                <div class="tile-title">9. Teroka Angkasa</div>
+            </a>
+            <!-- Modul 10 (2x1) -->
+            <a href="modul10.html" class="tile tile-10">
+                <div class="tile-icon">🏃‍♂️</div>
+                <div class="tile-title">10. Lompat Halangan</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- ========================================================================== -->
+    <!-- MODAL 1: PENGURUSAN KELAS & SUBJEK (Multi-Class & Subject)               -->
+    <!-- ========================================================================== -->
+    <div id="modal-class" class="overlay">
+        <div class="modal">
+            <button class="close-btn" onclick="UI.closeModal('modal-class')">✖</button>
+            <h2>🏫 Profil Kelas Aktif</h2>
+            <div class="d-flex">
+                <div class="form-group flex-1">
+                    <label>Pilih Kelas:</label><select id="sel-class" class="form-control"></select>
+                </div>
+                <div class="form-group flex-1">
+                    <label>Subjek Ajar:</label><select id="sel-subject" class="form-control"></select>
+                </div>
+                <div class="form-group" style="width: 150px;">
+                    <label>Bil. Kumpulan:</label>
+                    <select id="sel-teams" class="form-control">
+                        <option value="4">4 Kump</option><option value="5">5 Kump</option>
+                        <option value="6">6 Kump</option><option value="7">7 Kump</option><option value="8">8 Kump</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn btn-primary" style="width: 100%; margin-bottom: 25px;" onclick="ClassMgr.saveActiveProfile()">💾 Simpan & Aktifkan Profil</button>
+            <hr style="border-color: rgba(255,255,255,0.1); margin-bottom: 20px;">
+            <div class="d-flex">
+                <div class="flex-1" style="background: rgba(0,0,0,0.3); padding: 20px; border-radius: 8px;">
+                    <h3 style="font-size:1rem; margin-bottom: 10px; color:#aaa;">➕ Tambah Kelas Baharu</h3>
+                    <input type="text" id="inp-new-class" class="form-control" placeholder="Cth: 5 Al-Biruni" style="margin-bottom: 10px;">
+                    <button class="btn btn-primary" style="width: 100%;" onclick="ClassMgr.addClass()">Tambah Kelas</button>
+                </div>
+                <div class="flex-1" style="background: rgba(0,0,0,0.3); padding: 20px; border-radius: 8px;">
+                    <h3 style="font-size:1rem; margin-bottom: 10px; color:#aaa;">➕ Tambah Subjek Baharu</h3>
+                    <input type="text" id="inp-new-subject" class="form-control" placeholder="Cth: Jawi Tahun 4" style="margin-bottom: 10px;">
+                    <button class="btn btn-primary" style="width: 100%;" onclick="ClassMgr.addSubject()">Tambah Subjek</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================== -->
+    <!-- MODAL 2: MASTER QUESTION BANK MANAGER (Editor Pusat)                     -->
+    <!-- ========================================================================== -->
+    <div id="modal-master-editor" class="overlay">
+        <div class="modal" style="max-width: 1000px;">
+            <button class="close-btn" onclick="UI.closeModal('modal-master-editor')">✖</button>
+            <h2>📝 Master Editor Soalan</h2>
+            <div class="editor-workspace">
+                <div class="form-group" style="text-align: center;">
+                    <label>Pilih Modul Untuk Disunting:</label>
+                    <select id="sel-modul-edit" class="form-control" style="max-width: 400px; margin: 0 auto; font-size: 1.1rem; text-align: center; font-weight: bold; color: var(--theme-primary);" onchange="MasterEditor.loadModulForm()">
+                        <option value="1">1. Cari Perkataan</option><option value="2">2. Pukul Kalimah</option>
+                        <option value="3">3. Lari Pecut</option><option value="4">4. Tarik Tali</option>
+                        <option value="5">5. Cari Harta Karun</option><option value="6">6. Golden Buzzer</option>
+                        <option value="7">7. Tembak Belon</option><option value="8">8. Tangkap Ikan</option>
+                        <option value="9">9. Teroka Angkasa</option><option value="10">10. Lompat Halangan</option>
+                    </select>
+                </div>
+                <div class="editor-controls" id="dynamic-form-container"></div>
+                <div class="table-wrap">
+                    <table><thead id="dynamic-table-header"></thead><tbody id="dynamic-table-body"></tbody></table>
+                </div>
+                <button class="btn btn-warning" onclick="MasterEditor.resetCurrentModul()">🔄 Reset Silibus Modul Ini</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================== -->
+    <!-- MODAL 3: GLOBAL LEADERBOARD & MATCH HISTORY                              -->
+    <!-- ========================================================================== -->
+    <div id="modal-leaderboard" class="overlay">
+        <div class="modal">
+            <button class="close-btn" onclick="UI.closeModal('modal-leaderboard')">✖</button>
+            <h2>🏆 Papan Markah (Leaderboard)</h2>
+            <div class="table-wrap" style="max-height: 500px;">
+                <table>
+                    <thead><tr><th style="width: 80px; text-align: center;">Rank</th><th>Kumpulan</th><th style="text-align: center;">Mata</th></tr></thead>
+                    <tbody id="leaderboard-body"></tbody>
+                </table>
+            </div>
+            <button class="btn btn-danger" style="width: 100%; margin-top: 20px;" onclick="Leaderboard.resetScores()">🗑️ Padam Markah Kelas Ini</button>
+        </div>
+    </div>
+
+    <!-- ========================================================================== -->
+    <!-- MODAL 4: TETAPAN TEMA & SOUND TEST                                       -->
+    <!-- ========================================================================== -->
+    <div id="modal-settings" class="overlay">
+        <div class="modal" style="max-width: 600px;">
+            <button class="close-btn" onclick="UI.closeModal('modal-settings')">✖</button>
+            <h2>🎨 Tema & Audio</h2>
+            <div style="background: rgba(0,0,0,0.3); padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+                <h3 style="font-size:1.1rem; color:#ccc; margin-bottom: 15px;">Pilih Tema Dashboard</h3>
+                <div class="d-flex">
+                    <button class="btn btn-primary flex-1" onclick="Theme.set('cyan')">🌐 Cyberpunk</button>
+                    <button class="btn btn-primary flex-1" onclick="Theme.set('magenta')" style="border-color:#ff00ea; color:#ff00ea;">🎆 Magenta</button>
+                    <button class="btn btn-primary flex-1" onclick="Theme.set('lime')" style="border-color:#39ff14; color:#39ff14;">🟢 Lime</button>
+                    <button class="btn btn-primary flex-1" onclick="Theme.set('gold')" style="border-color:#ffd700; color:#ffd700;">👑 Gold</button>
+                </div>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); padding: 25px; border-radius: 8px;">
+                <h3 style="font-size:1.1rem; color:#ccc; margin-bottom: 15px;">Ujian Audio SFX</h3>
+                <div class="form-group">
+                    <select id="sel-global-sfx" class="form-control" onchange="AudioTester.toggleSFX()">
+                        <option value="on">🔊 SFX ON</option><option value="off">🔇 SFX OFF</option>
+                    </select>
+                </div>
+                <div class="d-flex">
+                    <button class="btn btn-primary flex-1" onclick="AudioTester.play('correct')">✅ Betul</button>
+                    <button class="btn btn-danger flex-1" onclick="AudioTester.play('wrong')">❌ Salah</button>
+                    <button class="btn btn-warning flex-1" onclick="AudioTester.play('laser')">🔫 Laser</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================== -->
+    <!-- MODAL 5: DATA BACKUP & RESTORE (JSON)                                    -->
+    <!-- ========================================================================== -->
+    <div id="modal-backup" class="overlay">
+        <div class="modal" style="max-width: 600px;">
+            <button class="close-btn" onclick="UI.closeModal('modal-backup')">✖</button>
+            <h2>💾 Backup & Restore</h2>
+            <div style="background: rgba(0,243,255,0.1); padding: 20px; border-radius: 8px; border: 1px solid var(--theme-primary); margin-bottom: 20px; text-align: center;">
+                <h3 style="font-size:1.1rem; margin-bottom: 15px;">📥 EXPORT DATA</h3>
+                <button class="btn btn-primary" onclick="DataHub.exportJSON()">Muat Turun Fail Backup (.json)</button>
+            </div>
+            <div style="background: rgba(255,42,42,0.1); padding: 20px; border-radius: 8px; border: 1px solid #ff2a2a; text-align: center;">
+                <h3 style="font-size:1.1rem; margin-bottom: 15px; color:#ff2a2a;">📤 IMPORT DATA</h3>
+                <input type="file" id="file-import" accept=".json" class="form-control" style="margin-bottom: 15px;">
+                <button class="btn btn-danger" onclick="DataHub.importJSON()">Pulihkan Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================== -->
+    <!-- MODAL 6: MAKLUMAT SISTEM                                                 -->
+    <!-- ========================================================================== -->
+    <div id="modal-info" class="overlay">
+        <div class="modal" style="max-width: 500px;">
+            <button class="close-btn" onclick="UI.closeModal('modal-info')">✖</button>
+            <h2>ℹ️ Maklumat Sistem</h2>
+            <div class="modal-body" style="text-align:center;">
+                <p><strong>Ustazah Hajar Arked (V2.0 Pro)</strong></p><br>
+                <p>SPA HTML5/JS | Web Audio API | LocalStorage JSON</p>
+                <hr style="border-color: rgba(255,255,255,0.1); margin: 25px 0;">
+                <h3 style="color:#aaa; font-size:0.9rem;">DIBANGUNKAN OLEH:</h3>
+                <h1 style="font-size: 1.8rem; color:var(--theme-primary); margin: 5px 0; letter-spacing:1px;">ONE MANURI</h1>
+                <p style="color: #666; font-size: 0.85rem;">Hak Cipta Terpelihara © 2026</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================================================
+         JAVASCRIPT ENJIN PUSAT
+         ========================================================================== -->
+    <script>
+        const DefaultData = {
+            config: { currentClass: '4 Al-Razi', currentSubject: 'Bahasa Arab (KAFA)', teams: 4, theme: 'cyan', sfx: 'on' },
+            classes: ['4 Al-Razi', '5 Al-Farabi'],
+            subjects: ['Bahasa Arab (KAFA)', 'Jawi', 'Feqah', 'Tauhid'],
+            modul1: [{ word: "الْمَاءُ" }, { word: "يَفْتَحُ" }, { word: "هِيَ" }],
+            modulTypeA: [{ q: "Pilih KATA NAMA (الإِسْمُ)", options: ["الْمَاءُ", "يَفْتَحُ"], answer: 0 }, { q: "Pilih KATA KERJA (الفِعْلُ)", options: ["شَوْكَةٌ", "يُعْطِي"], answer: 1 }],
+            modulTypeB: [{ a: "الْمَاءُ", b: "الإِسْمُ" }, { a: "يَفْتَحُ", b: "الفِعْلُ" }],
+            modulTypeC: [{ q: "Apakah erti الْحَمْدُ لِلَّهِ ?", ans: "Segala puji bagi Allah" }, { q: "Bilakah waktu solat Maghrib?", ans: "Waktu senja" }]
+        };
+
+        const UI = {
+            toggleSidebar: () => document.getElementById('sidebar').classList.toggle('open'),
+            openModal: (id) => document.getElementById(id).style.display = 'block',
+            closeModal: (id) => document.getElementById(id).style.display = 'none',
+            updateDashboardHeader: function() {
+                document.title = `Ustazah Hajar Arked - ${App.config.currentClass}`;
+                document.getElementById('display-class').innerText = `${App.config.currentClass} | ${App.config.currentSubject}`;
+            }
+        };
+
+        const Theme = {
+            set: function(themeName) {
+                document.body.className = `theme-${themeName}`;
+                App.config.theme = themeName;
+                App.saveConfig();
+            },
+            init: function() { this.set(App.config.theme || 'cyan'); }
+        };
+
+        const App = {
+            config: {}, classes: [], subjects: [],
+            init: function() {
+                this.loadConfig(); Theme.init(); ClassMgr.initUI();
+                UI.updateDashboardHeader(); Leaderboard.init();
+            },
+            loadConfig: function() {
+                const conf = localStorage.getItem('kafaAppConfig'); this.config = conf ? JSON.parse(conf) : {...DefaultData.config};
+                const cls = localStorage.getItem('kafaClasses'); this.classes = cls ? JSON.parse(cls) : [...DefaultData.classes];
+                const sub = localStorage.getItem('kafaSubjects'); this.subjects = sub ? JSON.parse(sub) : [...DefaultData.subjects];
+                localStorage.setItem('kafaMultiplayerTeams', this.config.teams);
+                if(!localStorage.getItem('kafaSfx')) localStorage.setItem('kafaSfx', this.config.sfx);
+            },
+            saveConfig: function() {
+                localStorage.setItem('kafaAppConfig', JSON.stringify(this.config));
+                localStorage.setItem('kafaClasses', JSON.stringify(this.classes));
+                localStorage.setItem('kafaSubjects', JSON.stringify(this.subjects));
+                localStorage.setItem('kafaMultiplayerTeams', this.config.teams);
+                UI.updateDashboardHeader();
+            },
+            resetSystemConfirm: function() {
+                if(confirm("AWAS! Padam KESEMUA data (Kelas, Soalan, Markah)?\nTaip 'RESET' untuk setuju:") === "RESET") {
+                    localStorage.clear(); alert("Sistem di-reset."); location.reload();
+                }
+            }
+        };
+
+        const ClassMgr = {
+            initUI: function() {
+                const selCls = document.getElementById('sel-class'); const selSub = document.getElementById('sel-subject');
+                selCls.innerHTML = ''; selSub.innerHTML = '';
+                App.classes.forEach(c => { selCls.innerHTML += `<option value="${c}" ${c === App.config.currentClass ? 'selected' : ''}>${c}</option>`; });
+                App.subjects.forEach(s => { selSub.innerHTML += `<option value="${s}" ${s === App.config.currentSubject ? 'selected' : ''}>${s}</option>`; });
+                document.getElementById('sel-teams').value = App.config.teams;
+            },
+            saveActiveProfile: function() {
+                App.config.currentClass = document.getElementById('sel-class').value;
+                App.config.currentSubject = document.getElementById('sel-subject').value;
+                App.config.teams = parseInt(document.getElementById('sel-teams').value);
+                App.saveConfig(); Leaderboard.init(); alert("Profil aktif disimpan!"); UI.closeModal('modal-class');
+            },
+            addClass: function() { let val = document.getElementById('inp-new-class').value.trim(); if(val && !App.classes.includes(val)) { App.classes.push(val); App.saveConfig(); this.initUI(); document.getElementById('inp-new-class').value=''; } },
+            addSubject: function() { let val = document.getElementById('inp-new-subject').value.trim(); if(val && !App.subjects.includes(val)) { App.subjects.push(val); App.saveConfig(); this.initUI(); document.getElementById('inp-new-subject').value=''; } }
+        };
+
+        const Leaderboard = {
+            scores: [],
+            init: function() {
+                let scoreKey = `kafaScores_${App.config.currentClass}`;
+                let saved = localStorage.getItem(scoreKey);
+                if(saved) {
+                    this.scores = JSON.parse(saved);
+                    while(this.scores.length < App.config.teams) this.scores.push(0);
+                    if(this.scores.length > App.config.teams) this.scores = this.scores.slice(0, App.config.teams);
+                } else { this.scores = Array(App.config.teams).fill(0); }
+                this.render();
+            },
+            render: function() {
+                let tbody = document.getElementById('leaderboard-body'); tbody.innerHTML = '';
+                let sorted = this.scores.map((s, idx) => ({ t: idx+1, s: s })).sort((a, b) => b.s - a.s);
+                sorted.forEach((item, index) => {
+                    let rankIcon = index === 0 ? '👑' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : `${index + 1}`));
+                    let tr = document.createElement('tr');
+                    tr.innerHTML = `<td style="text-align:center; font-size:1.2rem;">${rankIcon}</td><td style="font-weight:bold;">Kumpulan ${item.t}</td><td style="text-align:center; color:var(--theme-primary); font-weight:bold;">${item.s}</td>`;
+                    tbody.appendChild(tr);
+                });
+            },
+            resetScores: function() { if(confirm(`Padam markah ${App.config.currentClass}?`)) { this.scores = Array(App.config.teams).fill(0); localStorage.setItem(`kafaScores_${App.config.currentClass}`, JSON.stringify(this.scores)); this.render(); } }
+        };
+
+        const MasterEditor = {
+            currentModulId: 1, currentData: [],
+            getKey: function(id) { return `kafaQuestionsModul${id}`; },
+            loadModulForm: function() {
+                this.currentModulId = parseInt(document.getElementById('sel-modul-edit').value);
+                let saved = localStorage.getItem(this.getKey(this.currentModulId));
+                if(saved) this.currentData = JSON.parse(saved);
+                else {
+                    if(this.currentModulId===1) this.currentData = [...DefaultData.modul1];
+                    else if(this.currentModulId===5||this.currentModulId===8) this.currentData = [...DefaultData.modulTypeB];
+                    else if(this.currentModulId===6) this.currentData = [...DefaultData.modulTypeC];
+                    else this.currentData = [...DefaultData.modulTypeA];
+                }
+                this.buildInputForm(); this.renderTable();
+            },
+            buildInputForm: function() {
+                let c = document.getElementById('dynamic-form-container'); let h = '';
+                if(this.currentModulId===1) h = `<div class="form-group flex-1"><input type="text" id="me-word" class="form-control" dir="rtl" placeholder="Kalimah (Arab)"></div><button class="btn btn-primary" onclick="MasterEditor.save(1)">Simpan</button>`;
+                else if(this.currentModulId===5||this.currentModulId===8) h = `<div class="form-group flex-1"><input type="text" id="me-a" class="form-control" dir="rtl" placeholder="Kad 1"></div><div class="form-group flex-1"><input type="text" id="me-b" class="form-control" dir="rtl" placeholder="Kad 2"></div><button class="btn btn-primary" onclick="MasterEditor.save(2)">Simpan</button>`;
+                else if(this.currentModulId===6) h = `<div class="form-group flex-1"><input type="text" id="me-sq" class="form-control" placeholder="Soalan"></div><div class="form-group flex-1"><input type="text" id="me-sa" class="form-control" placeholder="Jawapan"></div><button class="btn btn-primary" onclick="MasterEditor.save(3)">Simpan</button>`;
+                else h = `<div class="form-group" style="width:100%;"><input type="text" id="me-oq" class="form-control" dir="rtl" placeholder="Soalan / Arahan"></div><div class="d-flex" style="width:100%;"><div class="form-group flex-1"><input type="text" id="me-o1" class="form-control" dir="rtl" placeholder="Pilihan A"></div><div class="form-group flex-1"><input type="text" id="me-o2" class="form-control" dir="rtl" placeholder="Pilihan B"></div><div class="form-group"><select id="me-oans" class="form-control"><option value="0">Jawapan: A</option><option value="1">Jawapan: B</option></select></div></div><button class="btn btn-primary" style="width:100%;" onclick="MasterEditor.save(4)">Simpan Modul ${this.currentModulId}</button>`;
+                c.innerHTML = h;
+            },
+            renderTable: function() {
+                let th = document.getElementById('dynamic-table-header'); let tb = document.getElementById('dynamic-table-body');
+                if(this.currentModulId===1) th.innerHTML = `<th>No</th><th>Kalimah</th><th>Aksi</th>`;
+                else if(this.currentModulId===5||this.currentModulId===8) th.innerHTML = `<th>No</th><th>Pasangan Kad</th><th>Aksi</th>`;
+                else if(this.currentModulId===6) th.innerHTML = `<th>No</th><th>Soalan Subjektif</th><th>Aksi</th>`;
+                else th.innerHTML = `<th>No</th><th>Soalan Objektif</th><th>Aksi</th>`;
+                tb.innerHTML = '';
+                this.currentData.forEach((item, i) => {
+                    let tr = document.createElement('tr'); let c = '';
+                    if(this.currentModulId===1) c = `<td class="td-arab">${item.word}</td>`;
+                    else if(this.currentModulId===5||this.currentModulId===8) c = `<td class="td-arab">${item.a} = ${item.b}</td>`;
+                    else if(this.currentModulId===6) c = `<td>${item.q} <br><small style="color:#aaa">${item.ans}</small></td>`;
+                    else c = `<td class="td-arab">${item.q}<br><small style="font-family:sans-serif; color:#aaa;" dir="ltr">[A: ${item.options[0]}] [B: ${item.options[1]}] (Tepat: ${item.answer===0?'A':'B'})</small></td>`;
+                    tr.innerHTML = `<td>${i+1}</td> ${c} <td><button class="del-btn" onclick="MasterEditor.del(${i})">✖</button></td>`;
+                    tb.appendChild(tr);
+                });
+            },
+            save: function(type) {
+                if(type===1) { let w=document.getElementById('me-word').value; if(w) { this.currentData.push({word:w}); document.getElementById('me-word').value=''; } }
+                else if(type===2) { let a=document.getElementById('me-a').value, b=document.getElementById('me-b').value; if(a&&b) { this.currentData.push({a:a,b:b}); document.getElementById('me-a').value=''; document.getElementById('me-b').value=''; } }
+                else if(type===3) { let q=document.getElementById('me-sq').value, a=document.getElementById('me-sa').value; if(q&&a) { this.currentData.push({q:q,ans:a}); document.getElementById('me-sq').value=''; document.getElementById('me-sa').value=''; } }
+                else if(type===4) { let q=document.getElementById('me-oq').value, o1=document.getElementById('me-o1').value, o2=document.getElementById('me-o2').value, a=parseInt(document.getElementById('me-oans').value); if(q&&o1&&o2) { this.currentData.push({q:q,options:[o1,o2],answer:a}); document.getElementById('me-oq').value=''; document.getElementById('me-o1').value=''; document.getElementById('me-o2').value=''; } }
+                localStorage.setItem(this.getKey(this.currentModulId), JSON.stringify(this.currentData)); this.renderTable();
+            },
+            del: function(idx) { if(confirm("Padam?")) { this.currentData.splice(idx,1); localStorage.setItem(this.getKey(this.currentModulId), JSON.stringify(this.currentData)); this.renderTable(); } },
+            resetCurrentModul: function() { if(confirm("Reset ke asal?")) { localStorage.removeItem(this.getKey(this.currentModulId)); this.loadModulForm(); } }
+        };
+
+        const AudioTester = {
+            ctx: null,
+            toggleSFX: function() { let v = document.getElementById('sel-global-sfx').value; localStorage.setItem('kafaSfx', v); },
+            playTone: function(f, t, d, v=0.3, ef=null) {
+                if(localStorage.getItem('kafaSfx')==='off') return;
+                const AC = window.AudioContext || window.webkitAudioContext; if(!this.ctx && AC) this.ctx = new AC(); if(!this.ctx) return;
+                try { let o=this.ctx.createOscillator(), g=this.ctx.createGain(); o.type=t; o.frequency.setValueAtTime(f, this.ctx.currentTime); if(ef) o.frequency.exponentialRampToValueAtTime(ef, this.ctx.currentTime+d); g.gain.setValueAtTime(v, this.ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime+d); o.connect(g); g.connect(this.ctx.destination); o.start(); o.stop(this.ctx.currentTime+d); }catch(e){}
+            },
+            play: function(id) {
+                if(id==='correct') { this.playTone(600,'sine',0.1,0.4); setTimeout(()=>this.playTone(900,'sine',0.2,0.4),150); }
+                else if(id==='wrong') { this.playTone(180,'square',0.3,0.5); }
+                else if(id==='laser') { this.playTone(800,'square',0.15,0.2,200); }
+            }
+        };
+
+        const DataHub = {
+            exportJSON: function() {
+                let d = {}; for(let i=0; i<localStorage.length; i++) { let k=localStorage.key(i); if(k.startsWith('kafa')) d[k]=localStorage.getItem(k); }
+                let a = document.createElement('a'); a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(d, null, 2));
+                a.download = `Backup_UstazahHajarArked.json`; document.body.appendChild(a); a.click(); a.remove();
+            },
+            importJSON: function() {
+                let fi = document.getElementById('file-import'); if(!fi.files.length) return alert("Pilih fail .json!");
+                let r = new FileReader();
+                r.onload = function(e) {
+                    try {
+                        let d = JSON.parse(e.target.result); let v=false; for(let k in d) { if(k.startsWith('kafa')) { v=true; break; } }
+                        if(!v) throw new Error("Data tidak sah.");
+                        for(let k in d) { if(k.startsWith('kafa')) localStorage.setItem(k, d[k]); }
+                        alert("RESTORE BERJAYA!"); location.reload();
+                    } catch(err) { alert("Ralat: " + err.message); }
+                }; r.readAsText(fi.files[0]);
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', () => { App.init(); MasterEditor.loadModulForm(); });
+    </script>
+</body>
+</html>

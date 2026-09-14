@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Game 8: Tangkap Ikan - KAFA Arked</title>
+    <style>
+        /* ==========================================================================
+           1. PEMBOLEH UBAH TEMA (NEON FISHING / CYBER POOL)
+           ========================================================================== */
+        :root {
+            --bg-dark: #010a15;
+            --bg-water: rgba(0, 150, 255, 0.05);
+            
+            --glass-bg: rgba(10, 25, 45, 0.7);
+            --glass-border: rgba(0, 243, 255, 0.3);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+            
+            --neon-teal: #00f3ff;
+            --neon-gold: #ffd700;
+            --neon-blue: #0088ff;
+            --neon-red: #ff2a2a;
+            --neon-green: #39ff14;
+            
+            --text-main: #f8fafc;
+            --font-ui: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --font-arab: 'Traditional Arabic', 'Amiri', serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body, html {
+            width: 100vw; height: 100vh; overflow: hidden;
+            background-color: var(--bg-dark); font-family: var(--font-ui);
+            color: var(--text-main); user-select: none; touch-action: manipulation;
+        }
+
+        /* Latar Belakang Air Siber (Cyber Pool) */
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: repeating-radial-gradient(circle at 50% 120%, var(--bg-water), transparent 10%);
+            opacity: 0.5; z-index: -2; animation: waterRipple 15s infinite alternate ease-in-out;
+        }
+        @keyframes waterRipple { 0% { transform: scale(1); } 100% { transform: scale(1.1) translateY(-20px); } }
+
+        /* Cahaya Ambien Air */
+        .ambient-light { position: fixed; width: 60vw; height: 60vw; border-radius: 50%; filter: blur(130px); z-index: -1; opacity: 0.25; }
+        .light-bottom { bottom: -20%; left: 20%; background: var(--neon-blue); }
+        .light-top { top: -10%; right: -10%; background: var(--neon-teal); }
+
+        /* ==========================================================================
+           2. ANTARAMUKA HUD (HEADS-UP DISPLAY)
+           ========================================================================== */
+        .glass-panel {
+            background: var(--glass-bg); backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border); border-radius: 15px; box-shadow: var(--glass-shadow);
+        }
+
+        /* Misi & Pemasa (Atas Tengah) */
+        #game-header {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 750px; padding: 15px 25px; text-align: center;
+            display: flex; flex-direction: column; gap: 5px; z-index: 100;
+            border-bottom: 4px solid var(--neon-teal);
+        }
+        
+        #timer-display { font-size: 2.5rem; font-weight: 900; color: var(--neon-gold); text-shadow: 0 0 15px var(--neon-gold); font-family: monospace; transition: 0.3s; }
+        #timer-display.warning { color: var(--neon-red); text-shadow: 0 0 20px var(--neon-red); animation: pulse 0.5s infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        
+        #mission-text { font-size: 1.8rem; font-weight: bold; color: var(--neon-teal); text-shadow: 0 0 10px var(--neon-teal); direction: rtl; font-family: var(--font-arab); }
+        .team-badge { font-size: 1rem; color: #fff; background: rgba(0,243,255,0.2); padding: 3px 15px; border-radius: 12px; display: inline-block; margin-bottom: 5px; border: 1px solid var(--neon-teal); letter-spacing: 1px; }
+
+        /* Papan Skor (Atas Kanan) */
+        #scoreboard { position: absolute; top: 20px; right: 20px; width: 230px; padding: 15px; z-index: 100; border-right: 3px solid var(--neon-gold); }
+        .score-title { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; font-weight: bold; }
+        .team-row { display: flex; justify-content: space-between; padding: 6px 10px; margin-bottom: 5px; border-radius: 6px; font-weight: bold; font-size: 1rem; transition: 0.3s; }
+        .team-row.active { background: rgba(255, 215, 0, 0.2); border: 1px solid var(--neon-gold); color: var(--neon-gold); text-shadow: 0 0 8px var(--neon-gold); transform: scale(1.05); }
+
+        /* Butang Tetapan (Atas Kiri) */
+        #btn-settings {
+            position: absolute; top: 20px; left: 20px; width: 55px; height: 55px;
+            border-radius: 50%; background: var(--glass-bg); border: 2px solid var(--neon-teal);
+            color: var(--neon-teal); font-size: 1.5rem; display: flex; justify-content: center;
+            align-items: center; cursor: pointer; z-index: 100; transition: 0.4s; box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+        }
+        #btn-settings:hover { transform: rotate(180deg) scale(1.1); box-shadow: 0 0 25px var(--neon-teal); }
+
+        /* ==========================================================================
+           3. ARENA KOLAM (IKAN & JARING)
+           ========================================================================== */
+        #game-arena { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden; z-index: 10; }
+
+        .fish {
+            position: absolute; display: flex; align-items: center; justify-content: center;
+            padding: 10px 20px; background: rgba(0, 30, 60, 0.7); border: 2px solid var(--neon-teal);
+            border-radius: 50px; box-shadow: 0 0 20px rgba(0, 243, 255, 0.4), inset 0 0 15px rgba(0, 243, 255, 0.2);
+            cursor: crosshair; animation-timing-function: linear; white-space: nowrap;
+            transition: transform 0.2s; -webkit-tap-highlight-color: transparent;
+        }
+        .fish:active { transform: scale(0.9); }
+
+        .fish-emoji { font-size: 2.5rem; filter: drop-shadow(0 0 5px rgba(0, 243, 255, 0.8)); margin: 0 10px; }
+        .fish-text { font-family: var(--font-arab); font-size: 1.8rem; font-weight: bold; color: #fff; text-shadow: 0 0 10px var(--neon-teal); direction: rtl; }
+
+        /* Variasi Arah Ikan */
+        .dir-right { animation-name: swimRight; flex-direction: row; }
+        .dir-right .fish-emoji { transform: scaleX(-1); } /* Ikan pandang kanan */
+        .dir-left { animation-name: swimLeft; flex-direction: row-reverse; }
+
+        /* Variasi Ikan Emas (Bonus) */
+        .fish.gold {
+            border-color: var(--neon-gold); background: rgba(60, 40, 0, 0.8);
+            box-shadow: 0 0 25px rgba(255, 215, 0, 0.6), inset 0 0 20px rgba(255, 215, 0, 0.4);
+        }
+        .fish.gold .fish-text { text-shadow: 0 0 15px var(--neon-gold); color: var(--neon-gold); }
+
+        @keyframes swimRight { 0% { left: -20%; } 100% { left: 110%; } }
+        @keyframes swimLeft { 0% { left: 110%; } 100% { left: -20%; } }
+
+        /* Teks Animasi Markah Terapung */
+        .float-score { position: absolute; font-size: 3rem; font-weight: 900; z-index: 100; pointer-events: none; animation: floatUpText 1.2s ease-out forwards; }
+        .float-correct { color: var(--neon-green); text-shadow: 0 0 20px var(--neon-green), 0 0 5px #fff; }
+        .float-wrong { color: var(--neon-red); text-shadow: 0 0 20px var(--neon-red), 0 0 5px #fff; }
+        @keyframes floatUpText { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-100px) scale(1.5); opacity: 0; } }
+
+        /* Kesan Air Memercik (Splash Particles) */
+        .particle { position: absolute; width: 15px; height: 15px; border-radius: 50%; pointer-events: none; animation: splash 0.5s ease-out forwards; }
+        @keyframes splash { 0% { transform: translate(0, 0) scale(1); opacity: 1; } 100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; } }
+
+        /* ==========================================================================
+           4. MODAL TETAPAN & EDITOR SOALAN
+           ========================================================================== */
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 1000; }
+        .modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; padding: 30px; direction: ltr; }
+        .modal::-webkit-scrollbar { width: 8px; } .modal::-webkit-scrollbar-thumb { background: var(--neon-teal); border-radius: 4px; }
+        
+        .modal h2 { text-align: center; color: var(--neon-teal); font-size: 2rem; text-shadow: 0 0 15px var(--neon-teal); margin-bottom: 25px; border-bottom: 2px solid rgba(0, 243, 255, 0.3); padding-bottom: 15px; }
+        .close-btn { position: absolute; top: 20px; right: 20px; background: none; border: none; color: #fff; font-size: 2rem; cursor: pointer; transition: 0.3s; }
+        .close-btn:hover { color: var(--neon-red); transform: scale(1.2); }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 8px; color: var(--neon-gold); }
+        .form-control { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.6); color: white; font-size: 1.1rem; }
+        
+        .btn { padding: 12px 25px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.3s; text-align: center; border: 2px solid transparent; width: 100%; }
+        .btn-primary { background: rgba(0, 243, 255, 0.1); border-color: var(--neon-teal); color: var(--neon-teal); }
+        .btn-primary:hover { background: var(--neon-teal); color: #000; box-shadow: 0 0 20px var(--neon-teal); }
+        .btn-danger { background: rgba(255, 0, 60, 0.1); border-color: var(--neon-red); color: var(--neon-red); margin-top: 15px; }
+        .btn-home { background: rgba(255, 215, 0, 0.1); border-color: var(--neon-gold); color: var(--neon-gold); text-decoration: none; display: block; margin-top: 15px; }
+
+        .table-wrap { max-height: 250px; overflow-y: auto; border: 1px solid var(--glass-border); border-radius: 10px; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        th { background: rgba(0,0,0,0.8); color: var(--neon-teal); position: sticky; top: 0; }
+        .td-arab { direction: rtl; font-size: 1.3rem; font-weight: bold; font-family: var(--font-arab); }
+        .del-btn { background: none; border: none; color: var(--neon-red); font-size: 1.2rem; cursor: pointer; }
+
+        /* Skrin Pemula / Tamat */
+        .fs-screen { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(1, 10, 20, 0.95); z-index: 500; }
+        .fs-screen h1 { font-size: 4rem; color: var(--neon-teal); text-shadow: 0 0 20px var(--neon-teal); margin-bottom: 20px; }
+        
+        @media (max-width: 768px) {
+            #mission-text { font-size: 1.4rem; }
+            #timer-display { font-size: 2rem; }
+            #game-header { top: 70px; padding: 10px; width: 95%; }
+            #scoreboard { position: relative; width: 95%; right: 0; top: 0; display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; border: none; padding: 10px; margin: 0 auto; }
+            .team-row { margin: 0; font-size: 0.85rem; padding: 5px 8px; }
+            .fish { padding: 5px 15px; }
+            .fish-emoji { font-size: 2rem; margin: 0 5px; }
+            .fish-text { font-size: 1.4rem; }
+            #btn-settings { top: 10px; left: 10px; width: 45px; height: 45px; font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ambient-light light-bottom"></div>
+    <div class="ambient-light light-top"></div>
+
+    <button id="btn-settings" onclick="Editor.openModal()" title="Tetapan & Editor">⚙️</button>
+
+    <!-- Skrin Mula -->
+    <div id="start-screen" class="fs-screen">
+        <h1>🎣 TANGKAP IKAN</h1>
+        <p style="font-size: 1.2rem; margin-bottom: 40px; color: var(--text-muted); max-width: 600px;">
+            Setiap kumpulan mempunyai masa <strong>30 Saat</strong>.<br>
+            Tangkap ikan yang membawa kalimah yang betul dengan menebarkan jaring (klik).<br>
+            Awas! Jangan tangkap ikan beracun (jawapan salah).
+        </p>
+        <button class="btn btn-primary" style="max-width: 300px; font-size: 1.5rem;" onclick="Game.startMatch()">▶ MULA MENANGKAP</button>
+    </div>
+
+    <!-- Skrin Tamat -->
+    <div id="end-screen" class="fs-screen" style="display: none;">
+        <h1 style="color:var(--neon-gold); text-shadow:0 0 20px var(--neon-gold);">🏆 TANGKAPAN SELESAI</h1>
+        <div id="final-results" style="font-size: 1.5rem; margin-bottom: 30px; line-height: 2; color: white;"></div>
+        <button class="btn btn-primary" style="max-width: 300px; margin-bottom: 15px;" onclick="location.reload()">🔄 MAIN SEMULA</button>
+        <a href="index.html" class="btn btn-home" style="max-width: 300px;">🏠 HALAMAN UTAMA</a>
+    </div>
+
+    <!-- Papan Skor -->
+    <div id="scoreboard" class="glass-panel">
+        <div class="score-title">Hasil Tangkapan</div>
+        <div id="score-list"></div>
+    </div>
+
+    <!-- Header & Misi -->
+    <div id="game-header" class="glass-panel">
+        <div class="team-badge" id="team-badge">GILIRAN KUMPULAN 1</div>
+        <div id="mission-text">Bersedia...</div>
+        <div id="timer-display">30.0s</div>
+    </div>
+
+    <!-- Arena Kolam -->
+    <div id="game-arena">
+        <!-- Ikan akan dijana di sini -->
+    </div>
+
+    <!-- Modal Editor -->
+    <div id="overlay-editor" class="overlay">
+        <div class="glass-panel modal" id="editor-modal">
+            <button class="close-btn" onclick="Editor.closeModal()">✖</button>
+            <h2>⚙️ EDITOR SOALAN TANGKAP IKAN</h2>
+            
+            <div style="background: rgba(0,0,0,0.4); padding: 25px; border-radius: 15px; border: 1px dashed var(--neon-teal); margin-bottom: 20px;">
+                <h3 style="color:var(--neon-gold); margin-bottom: 15px;">➕ Tambah Misi Tangkapan</h3>
+                <div class="form-group">
+                    <label>Arahan Misi (Bahasa Arab/Melayu):</label>
+                    <input type="text" id="edit-q-text" class="form-control" placeholder="Cth: Tangkap KATA NAMA (الإِسْمُ)" dir="rtl">
+                </div>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label>Kalimah 1:</label>
+                        <input type="text" id="edit-opt-1" class="form-control" placeholder="الْمَاءُ" dir="rtl">
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label>Kalimah 2:</label>
+                        <input type="text" id="edit-opt-2" class="form-control" placeholder="يَفْتَحُ" dir="rtl">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Kalimah Mana Yang Tepat (Perlu Ditangkap):</label>
+                    <select id="edit-ans" class="form-control">
+                        <option value="0">Kalimah 1</option>
+                        <option value="1">Kalimah 2</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="Editor.saveQuestion()">💾 SIMPAN MISI</button>
+            </div>
+
+            <h3 style="color:var(--neon-teal); margin-top: 20px;">📋 Bank Misi Semasa</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th style="width: 40px;">No.</th><th>Misi & Kalimah</th><th style="width: 50px;">Aksi</th></tr></thead>
+                    <tbody id="editor-tbody"></tbody>
+                </table>
+            </div>
+            
+            <button class="btn btn-danger" onclick="Editor.resetData()">🔄 KEMBALIKAN KE SILIBUS ASAL (RESET)</button>
+            <a href="index.html" class="btn btn-home">🏠 KEMBALI KE HALAMAN UTAMA</a>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================================
+        // MODUL AUDIO (Web Audio API Synthesizer)
+        // =====================================================================
+        const SFX = {
+            ctx: null,
+            playTone: function(freq, type, duration, vol=0.3) {
+                if(localStorage.getItem('kafaSfx') === 'off') return;
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if(!this.ctx && AudioContext) this.ctx = new AudioContext();
+                if(!this.ctx) return;
+                try {
+                    let osc = this.ctx.createOscillator();
+                    let gain = this.ctx.createGain();
+                    osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(); osc.stop(this.ctx.currentTime + duration);
+                } catch(e){}
+            },
+            netSplash: function() { 
+                // Bunyi percikan air (noise-like)
+                this.playTone(300, 'triangle', 0.1, 0.4); 
+                setTimeout(() => this.playTone(200, 'sine', 0.1, 0.3), 50);
+            },
+            correct: function() {
+                this.playTone(500, 'sine', 0.1, 0.3);
+                setTimeout(() => this.playTone(800, 'sine', 0.15, 0.3), 100);
+            },
+            wrong: function() { 
+                this.playTone(150, 'sawtooth', 0.3, 0.4); 
+            }
+        };
+
+        // =====================================================================
+        // MODUL DATA
+        // =====================================================================
+        const Data = {
+            teams: parseInt(localStorage.getItem('kafaMultiplayerTeams')) || 4,
+            scores: [], questions: [],
+            
+            defaultQuestions: [
+                { q: "Tangkap KATA NAMA (الإِسْمُ)", options: ["الْمَاءُ", "يَفْتَحُ"], answer: 0 },
+                { q: "Tangkap KATA KERJA (الفِعْلُ)", options: ["شَوْكَةٌ", "يُعْطِي"], answer: 1 },
+                { q: "Pasangan bagi: يَأْكُلْنَ", options: ["هُنَّ", "هُمْ"], answer: 0 },
+                { q: "Pasangan bagi: تَذْهَبُونَ", options: ["أَنْتُنَّ", "أَنْتُمْ"], answer: 1 },
+                { q: "Jam: السَّاعَةُ الثَّالِثَةُ تَمَامًا", options: ["٣:٠٠", "٣:٤٥"], answer: 0 },
+                { q: "Jam: السَّاعَةُ الخَامِسَةُ وَالنِّصْفُ", options: ["٥:١٥", "٥:٣٠"], answer: 1 },
+                { q: "Angka: 698", options: ["سِتُّمِائَةٍ وَثَمَانِيَةُ وَتِسْعُوْنَ", "خَمْسَةٌ وَعِشْرُونَ"], answer: 0 },
+                { q: "Kategori bagi: أَقْرَأُ", options: ["الإِسْمُ", "الفِعْلُ"], answer: 1 },
+                { q: "Kategori bagi: قَاعَةٌ", options: ["الإِسْمُ", "الفِعْلُ"], answer: 0 }
+            ],
+
+            init: function() {
+                this.scores = Array(this.teams).fill(0);
+                let saved = localStorage.getItem('kafaQuestionsModul8');
+                if(saved) { try { this.questions = JSON.parse(saved); } catch(e) { this.questions = [...this.defaultQuestions]; } }
+                else { this.questions = [...this.defaultQuestions]; }
+            },
+            save: function() { localStorage.setItem('kafaQuestionsModul8', JSON.stringify(this.questions)); }
+        };
+
+        // =====================================================================
+        // MODUL UI & ANIMASI
+        // =====================================================================
+        const UI = {
+            arena: document.getElementById('game-arena'),
+            scoreList: document.getElementById('score-list'),
+            timer: document.getElementById('timer-display'),
+            mission: document.getElementById('mission-text'),
+            teamBadge: document.getElementById('team-badge'),
+            
+            fishEmojis: ['🐟', '🐠', '🐡', '🦈', '🐬'], 
+
+            updateScoreboard: function(activeIdx) {
+                this.scoreList.innerHTML = '';
+                for(let i=0; i<Data.teams; i++) {
+                    let row = document.createElement('div');
+                    row.className = 'team-row';
+                    if(i === activeIdx) row.classList.add('active');
+                    
+                    row.innerHTML = `<span>Kump ${i+1}</span> <span>${Data.scores[i]}</span>`;
+                    this.scoreList.appendChild(row);
+                }
+            },
+
+            createSplash: function(x, y, isCorrect) {
+                const particleCount = 12;
+                const color = isCorrect ? '#00f3ff' : '#ff2a2a'; // Air berkocak / darah sikit kalau salah
+
+                for(let i=0; i<particleCount; i++) {
+                    let p = document.createElement('div');
+                    p.className = 'particle';
+                    p.style.backgroundColor = color;
+                    p.style.boxShadow = `0 0 10px ${color}`;
+                    p.style.left = x + 'px'; p.style.top = y + 'px';
+                    
+                    let angle = Math.random() * Math.PI * 2;
+                    let distance = Math.random() * 60 + 20; 
+                    p.style.setProperty('--tx', Math.cos(angle) * distance + 'px');
+                    p.style.setProperty('--ty', Math.sin(angle) * distance + 'px');
+                    
+                    this.arena.appendChild(p);
+                    setTimeout(() => p.remove(), 500);
+                }
+            },
+
+            showFloatText: function(text, isCorrect, x, y) {
+                let floatEl = document.createElement('div');
+                floatEl.className = 'float-score ' + (isCorrect ? 'float-correct' : 'float-wrong');
+                floatEl.innerText = text;
+                floatEl.style.left = (x - 20) + 'px'; floatEl.style.top = (y - 40) + 'px';
+                this.arena.appendChild(floatEl);
+                setTimeout(() => floatEl.remove(), 1200);
+            },
+
+            clearFishes: function() {
+                this.arena.innerHTML = '';
+            }
+        };
+
+        // =====================================================================
+        // ENJIN PERMAINAN
+        // =====================================================================
+        const Game = {
+            currentTeam: 0,
+            timeLeft: 30.0,
+            timerId: null,
+            spawnerId: null,
+            isPlaying: false,
+            currentMission: null,
+
+            startMatch: function() {
+                document.getElementById('start-screen').style.display = 'none';
+                Data.init();
+                if(Data.questions.length === 0) Data.questions = [...Data.defaultQuestions];
+                
+                this.currentTeam = 0;
+                this.startTurn();
+            },
+
+            startTurn: function() {
+                this.timeLeft = 30.0;
+                this.isPlaying = true;
+                
+                UI.updateScoreboard(this.currentTeam);
+                UI.teamBadge.innerText = `GILIRAN KUMPULAN ${this.currentTeam + 1}`;
+                
+                this.pickMission();
+                this.runEngine();
+            },
+
+            pickMission: function() {
+                let idx = Math.floor(Math.random() * Data.questions.length);
+                this.currentMission = Data.questions[idx];
+                UI.mission.innerText = `🎣 MISI: ${this.currentMission.q}`;
+            },
+
+            runEngine: function() {
+                if(!this.isPlaying) return;
+
+                // Pemasa 30 saat
+                this.timerId = setInterval(() => {
+                    this.timeLeft -= 0.1;
+                    if(this.timeLeft <= 0) {
+                        this.timeLeft = 0; this.endTurn();
+                    }
+                    UI.timer.innerText = this.timeLeft.toFixed(1) + 's';
+                    
+                    if(this.timeLeft < 10) UI.timer.classList.add('warning');
+                    else UI.timer.classList.remove('warning');
+                }, 100);
+
+                // Spawner Ikan (Makin laju kalau masa nak habis)
+                this.spawnerId = setInterval(() => {
+                    if(Math.random() > 0.2) this.spawnFish(); 
+                }, 900);
+            },
+
+            spawnFish: function() {
+                let fishEl = document.createElement('div');
+                let emoji = UI.fishEmojis[Math.floor(Math.random() * UI.fishEmojis.length)];
+                
+                // Tentukan arah berenang (Kiri ke Kanan atau Kanan ke Kiri)
+                let isGoingRight = Math.random() > 0.5;
+                fishEl.className = 'fish ' + (isGoingRight ? 'dir-right' : 'dir-left');
+
+                // Tentukan level Y (ketinggian rawak dalam kolam)
+                fishEl.style.top = Math.random() * 60 + 20 + '%'; // 20% to 80% height
+
+                // Tentukan jawapan betul atau salah (60% betul, 40% salah)
+                let isCorrect = Math.random() > 0.4;
+                let textStr = "";
+                
+                if(isCorrect) {
+                    textStr = this.currentMission.options[this.currentMission.answer];
+                    fishEl.dataset.isCorrect = 'true';
+                } else {
+                    let wrongIdx = this.currentMission.answer === 0 ? 1 : 0;
+                    textStr = this.currentMission.options[wrongIdx];
+                    fishEl.dataset.isCorrect = 'false';
+                }
+
+                // Peluang Ikan Emas (Bonus)
+                let isGold = Math.random() > 0.9; // 10% chance
+                if (isGold && isCorrect) fishEl.classList.add('gold');
+
+                fishEl.innerHTML = `<div class="fish-emoji">${emoji}</div><div class="fish-text">${textStr}</div>`;
+                
+                // Kelajuan Berenang (3s hingga 6s)
+                let dur = Math.random() * 3 + 3; 
+                if(isGold) dur = 2.5; // Ikan emas sangat laju
+                if(this.timeLeft < 10) dur -= 0.5; 
+                fishEl.style.animationDuration = dur + 's';
+                
+                // Event Menangkap Jaring (Klik/Sentuh)
+                const catchEvent = (e) => {
+                    e.preventDefault();
+                    if(!this.isPlaying) return;
+                    SFX.netSplash();
+                    this.catchFish(fishEl, e.clientX || e.touches[0].clientX, e.clientY || e.touches[0].clientY, isGold);
+                };
+                fishEl.addEventListener('mousedown', catchEvent);
+                fishEl.addEventListener('touchstart', catchEvent);
+
+                // Buang ikan lepas sampai hujung skrin
+                fishEl.addEventListener('animationend', () => {
+                    if(fishEl.parentNode) fishEl.remove();
+                });
+
+                UI.arena.appendChild(fishEl);
+            },
+
+            catchFish: function(el, x, y, isGold) {
+                el.style.pointerEvents = 'none'; // Elak spam klik
+                
+                let isCorrect = (el.dataset.isCorrect === 'true');
+                
+                if(isCorrect) {
+                    SFX.correct();
+                    let pts = isGold ? 20 : 10;
+                    Data.scores[this.currentTeam] += pts;
+                    UI.showFloatText(`+${pts}`, true, x, y);
+                    this.pickMission(); // Tukar misi lepas tangkap
+                } else {
+                    SFX.wrong();
+                    Data.scores[this.currentTeam] -= 5;
+                    UI.showFloatText("-5", false, x, y);
+                }
+
+                UI.updateScoreboard(this.currentTeam);
+                UI.createSplash(x, y, isCorrect);
+                el.remove(); // Ikan ditarik keluar
+            },
+
+            endTurn: function() {
+                clearInterval(this.timerId);
+                clearInterval(this.spawnerId);
+                this.isPlaying = false;
+                
+                UI.clearFishes();
+                UI.mission.innerText = "MASA TAMAT!";
+                
+                setTimeout(() => {
+                    this.currentTeam++;
+                    if(this.currentTeam >= Data.teams) {
+                        this.endMatch();
+                    } else {
+                        this.startTurn();
+                    }
+                }, 3000);
+            },
+
+            endMatch: function() {
+                document.getElementById('end-screen').style.display = 'flex';
+                let resDiv = document.getElementById('final-results');
+                resDiv.innerHTML = '';
+                
+                let maxScore = Math.max(...Data.scores);
+                let winners = [];
+                Data.scores.forEach((score, idx) => {
+                    if(score === maxScore) winners.push(idx + 1);
+                    resDiv.innerHTML += `Kumpulan ${idx + 1} : ${score} Mata <br>`;
+                });
+                
+                resDiv.innerHTML += `<br><strong style="color:var(--neon-gold)">🏆 TAHNIAH KUMPULAN ${winners.join(' & ')}!</strong>`;
+            }
+        };
+
+        // =====================================================================
+        // MODUL EDITOR (GURU)
+        // =====================================================================
+        const Editor = {
+            overlay: document.getElementById('overlay-editor'),
+            tbody: document.getElementById('editor-tbody'),
+
+            openModal: function() {
+                if(Game.isPlaying) { Game.endTurn(); } 
+                this.overlay.style.display = 'block'; this.render();
+            },
+            closeModal: function() { this.overlay.style.display = 'none'; },
+            
+            render: function() {
+                this.tbody.innerHTML = '';
+                Data.questions.forEach((q, idx) => {
+                    let tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${idx + 1}</td>
+                        <td class="td-arab">
+                            <span style="color:var(--neon-teal);">${q.q}</span><br>
+                            <span style="font-size:0.9rem; color:#aaa; direction:ltr;">1: ${q.options[0]} | 2: ${q.options[1]} (Tepat: ${q.answer===0?'1':'2'})</span>
+                        </td>
+                        <td><button class="del-btn" onclick="Editor.delete(${idx})">🗑️</button></td>
+                    `;
+                    this.tbody.appendChild(tr);
+                });
+            },
+
+            saveQuestion: function() {
+                let m = document.getElementById('edit-q-text').value.trim();
+                let o1 = document.getElementById('edit-opt-1').value.trim();
+                let o2 = document.getElementById('edit-opt-2').value.trim();
+                let ans = parseInt(document.getElementById('edit-ans').value);
+
+                if (!m || !o1 || !o2) return alert("Sila isi semua ruang kosong!");
+                Data.questions.push({ q: m, options: [o1, o2], answer: ans });
+                Data.save(); this.render();
+                
+                document.getElementById('edit-q-text').value = '';
+                document.getElementById('edit-opt-1').value = ''; document.getElementById('edit-opt-2').value = '';
+            },
+
+            delete: function(idx) { if(confirm("Padam misi ini?")) { Data.questions.splice(idx, 1); Data.save(); this.render(); } },
+            resetData: function() { if(confirm("Riset ke bank soalan asal KAFA?")) { Data.questions = [...Data.defaultQuestions]; Data.save(); this.render(); } }
+        };
+
+    </script>
+</body>
+</html>
